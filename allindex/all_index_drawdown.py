@@ -27,6 +27,7 @@ stockMapsHK = {
 all_index_drawdown_csv_file = "all_index_drawdown_test.csv"
 excel_file = "all_index_drawdown_test.xlsx"
 
+
 class Stock:
     def __int__(self, code, pe, pePos, peToLowest, pb, pbPos, pbToLowest, roe, roe_vs_pe, div):
         self.code = code
@@ -92,19 +93,19 @@ def getFundamentalSubPart(valueMap, stockCodes, country):
     for stock in response["data"]:
         index = Stock()
         index.code = stock["stockCode"]
-        pe = stock["pe_ttm"]["y10"]["mcw"]["cv"]
+        pe = stock["pe_ttm.y10.mcw.cv"]
         index.pe = "{:.2}".format(pe)
-        index.pePos = stock["pe_ttm"]["y10"]["mcw"]["cvpos"]
+        index.pePos = stock["pb.y10.mcw.cvpos"]
         index.peToLowest = "{:.2%}".format(
-            1 - stock["pe_ttm"]["y10"]["mcw"]["minv"] / stock["pe_ttm"]["y10"]["mcw"]["cv"])
-        index.pb = "{:.2}".format(stock["pb"]["y10"]["mcw"]["cv"])
-        index.pbPos = stock["pb"]["y10"]["mcw"]["cvpos"]
-        index.pbToLowest = "{:.2%}".format(1 - stock["pb"]["y10"]["mcw"]["minv"] / stock["pb"]["y10"]["mcw"]["cv"])
+            1 - stock["pe_ttm.y10.mcw.minv"] / stock["pe_ttm.y10.mcw.cv"])
+        index.pb = "{:.2}".format(stock["pb.y10.mcw.cv"])
+        index.pbPos = stock["pb.y10.mcw.cvpos"]
+        index.pbToLowest = "{:.2%}".format(1 - stock["pb.y10.mcw.minv"] / stock["pb.y10.mcw.cv"])
         roe = float(index.pb) / float(index.pe)
         index.roe = "{:.2%}".format(roe)
         index.roe_vs_pe = "{:.2}".format(roe / pe * 100) if pe > 0 else ""
-        if "mcw" in stock["dyr"]:
-            dividend = stock["dyr"]["mcw"]
+        if "dyr.mcw" in stock:
+            dividend = stock["dyr.mcw"]
             index.div = "{:.2%}".format(dividend)
         valueMap[stock["stockCode"]] = index
     return valueMap
@@ -116,39 +117,44 @@ def getEachIndexDrawdown(sector, funds, fund_styles, code, publishDate, valueInf
         print(f"{code} needs update tracking fund")
         return
     if not funds[code].strip():
-        print(f"{code} has no tracking fund")
+        print(f"{code} has no tracking fund, no need to get drawdown data")
         return
-    response = get_response(url=f"https://open.lixinger.com/api/{country}/index/drawdown",
-                            data={
-                                "stockCode": code,
-                                "startDate": startDate,
-                                "endDate": endDate,
-                                "token": token,
-                                "granularity": "y3",
-                            })
-    if response['message'] == 'success':
-        data = response['data']
-        current_drawdown = data[0]['value']
-        currentDrawdownText = "{:.2%}".format(current_drawdown)
-        # sort the data by date
-        sorted_data = sorted(data, key=lambda day: day['value'])
-        # get the lowest and highest index
-        largest_drawdown = sorted_data[0]['value']
-        drawdown = "{:.2%}".format(largest_drawdown)
-        number = 1 - (1 + largest_drawdown) / (1 + current_drawdown)
-        toLowest = "{:.2%}".format(number)
-        toHighest = "{:.2%}".format(1 / (1 + current_drawdown) - 1)
-        hasPosition = "*" if code in config.positionMaps.keys() else ""
-        try:
-            summary.append(
-                [sector, code, publishDate, value, fund_styles.get(code), hasPosition, currentDrawdownText, drawdown,
-                 toLowest, toHighest, valueInfo.pe, "{:.2%}".format(valueInfo.pePos), valueInfo.peToLowest,
-                 valueInfo.pb, "{:.2%}".format(valueInfo.pbPos), valueInfo.pbToLowest, valueInfo.roe,
-                 valueInfo.roe_vs_pe, valueInfo.div, funds[code]])
-        except Exception as e:
-            print(str(e))
-    else:
-        print("Failed to fetch data")
+    try:
+        response = get_response(url=f"https://open.lixinger.com/api/{country}/index/drawdown",
+                                data={
+                                    "stockCode": code,
+                                    "startDate": startDate,
+                                    "endDate": endDate,
+                                    "token": token,
+                                    "granularity": "y3",
+                                })
+        if 'message' in response and response['message'] == 'success':
+            data = response['data']
+            current_drawdown = data[0]['value']
+            currentDrawdownText = "{:.2%}".format(current_drawdown)
+            # sort the data by date
+            sorted_data = sorted(data, key=lambda day: day['value'])
+            # get the lowest and highest index
+            largest_drawdown = sorted_data[0]['value']
+            drawdown = "{:.2%}".format(largest_drawdown)
+            number = 1 - (1 + largest_drawdown) / (1 + current_drawdown)
+            toLowest = "{:.2%}".format(number)
+            toHighest = "{:.2%}".format(1 / (1 + current_drawdown) - 1)
+            hasPosition = "*" if code in config.positionMaps.keys() else ""
+            try:
+                summary.append(
+                    [sector, code, publishDate, value, fund_styles.get(code), hasPosition, currentDrawdownText,
+                     drawdown,
+                     toLowest, toHighest, valueInfo.pe, "{:.2%}".format(valueInfo.pePos), valueInfo.peToLowest,
+                     valueInfo.pb, "{:.2%}".format(valueInfo.pbPos), valueInfo.pbToLowest, valueInfo.roe,
+                     valueInfo.roe_vs_pe, valueInfo.div, funds[code]])
+            except Exception as e:
+                print(str(e))
+        else:
+            print("Failed to fetch data")
+    except:
+        print(f"Failed to get {code} drawdown data")
+
 
 
 def mark_as_percent(df, column):

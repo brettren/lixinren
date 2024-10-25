@@ -35,18 +35,25 @@ def get_response(url, data):
 
 
 def get_tracking_fund(stockCode, country):
-    response = get_response(url=f'https://open.lixinger.com/api/{country}/index/tracking-fund',
-                            data={
-                                "stockCode": stockCode,
-                                "token": token
-                            })
+    try:
+        response = get_response(url=f'https://open.lixinger.com/api/{country}/index/tracking-fund',
+                                data={
+                                    "stockCode": stockCode,
+                                    "token": token
+                                })
+    except:
+        print(f"stockCode: {stockCode} cannot get fund")
+        summary.append([stockCode, ""])
+        return
     index_funds = []
     for d in response["data"]:
         stock = Stock()
         stock.code = d["stockCode"]
         stock.shortName = d["shortName"]
         index_funds.append(stock.shortName + "(" + stock.code + ")")
-    summary.append([stockCode, ", ".join(index_funds)])
+    fund_list = ", ".join(index_funds)
+    summary.append([stockCode, fund_list])
+    print(f"stockCode: {stockCode} {fund_list}")
 
 
 def get_all_index_tracking_fund(stockCodes, country):
