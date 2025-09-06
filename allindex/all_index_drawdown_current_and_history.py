@@ -14,7 +14,10 @@ from openpyxl.styles import numbers
 
 token = config.token
 metricsList = [
-    "cp"
+    "cp",
+    "pe_ttm.y10.mcw",
+    "pb.y10.mcw",
+    "dyr.mcw"
 ]
 stockMapsCN = {
 
@@ -53,8 +56,8 @@ endDate = config.today
 startDate = (datetime.datetime.today() - datetime.timedelta(weeks=52 * 10)).strftime('%Y-%m-%d')
 headers = {'Content-Type': 'application/json'}
 summary = list()
-summary.append([endDate, "stockCode", "publishDate", "stockName", "style", "Current drawdown", "Largest drawdown",
-                "fall_to_lowest_drawdown", "funds"])
+summary.append([endDate, "stockCode", "publishDate", "stockName", "style", "hasPosition", "Current drawdown",
+                "Largest drawdown", "fall_to_lowest_drawdown", "pe", "pe10pos", "pb", "pb10pos", "roe", "div", "funds"])
 
 
 def get_index_codes(country):
@@ -100,6 +103,16 @@ def getFundamentalSubPart(valueMap, stockCodes, country):
         try:
             cp = stock["cp"]
             index.cp = cp
+            pe = stock["pe_ttm.y10.mcw.cv"]
+            index.pe = "{:.2}".format(pe)
+            index.pePos = stock["pb.y10.mcw.cvpos"]
+            index.pb = "{:.2}".format(stock["pb.y10.mcw.cv"])
+            index.pbPos = stock["pb.y10.mcw.cvpos"]
+            roe = float(index.pb) / float(index.pe)
+            index.roe = "{:.2%}".format(roe)
+            if "dyr.mcw" in stock:
+                dividend = stock["dyr.mcw"]
+                index.div = "{:.2%}".format(dividend)
         except:
             print(f"{index.code} cannot get cp")
         valueMap[stock["stockCode"]] = index
@@ -142,13 +155,17 @@ def log_each_index_info(sector, code, publishDate, valueInfo, value):
         if funds.get(code) is None:
             return
         current_drawdown = "{:.2%}".format(valueInfo.cp / float(all_index_highest_index_in_history.get(code)) - 1)
-        # endDate, "stockCode", "publishDate", "stockName", "style", "Current drawdown", "Largest drawdown","funds"
         largest_drawdown = all_index_largest_drawdown.get(code)
-        a_value = float(current_drawdown.strip('%')) / 100
-        b_value = float(largest_drawdown.strip('%')) / 100
-        result = (1 + b_value) / (1 + a_value) - 1
-        summary.append([sector, code, publishDate, value, fund_styles.get(code), current_drawdown,
-                        largest_drawdown, "{:.2%}".format(result), funds.get(code)])
+        current_drawdown_float = float(current_drawdown.strip('%')) / 100
+        largest_drawdown_float = float(largest_drawdown.strip('%')) / 100
+        fall_to_lowest_drawdown = (1 + largest_drawdown_float) / (1 + current_drawdown_float) - 1
+        hasPosition = "*" if code in config.positionMaps.keys() else ""
+        # endDate, "stockCode", "publishDate", "stockName", "style", "hasPosition", "Current drawdown",
+        # "Largest drawdown", "fall_to_lowest_drawdown", "pe", "pe10pos", "pb", "pb10pos", "roe", "div", "funds"
+        summary.append([sector, code, publishDate, value, fund_styles.get(code), hasPosition, current_drawdown,
+                        largest_drawdown, "{:.2%}".format(fall_to_lowest_drawdown), valueInfo.pe,
+                        "{:.2%}".format(valueInfo.pePos), valueInfo.pb, "{:.2%}".format(valueInfo.pbPos), valueInfo.roe,
+                        valueInfo.div, funds.get(code)])
     except Exception as e:
         print(str(e))
 
