@@ -72,9 +72,11 @@ def get_response(url, data):
 def getFundamental(stockCodes, country):
     valueMap = {}
     i = 0
+    print(f"{country}: Start fetch highest cp in 10 years")
     while i < len(stockCodes):
         getEachIndexFundamental(valueMap, stockCodes[i], country)
         i += 1
+    print(f"{country}: fetch Completed")
     return valueMap
 
 
@@ -97,10 +99,10 @@ def getEachIndexFundamental(valueMap, stockCodes, country):
         max_cp_item = max(data, key=lambda item: item["cp"] if "cp" in item else float('-inf'))
         index.highest_cp = max_cp_item["cp"]
         index.highest_cp_date = max_cp_item["date"][0:10]
+        valueMap[data[0]["stockCode"]] = index
+        print(f"{index.code} {index.highest_cp}")
     except:
         print(f"{index.code} cannot get cp")
-    valueMap[data[0]["stockCode"]] = index
-    print(f"{index.code} get cp {index.highest_cp}")
     return valueMap
 
 

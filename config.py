@@ -1,5 +1,5 @@
-today = "2025-07-28"
-token = "bdb2a9dd-a05e-4da2-8d84-8874de80f285"
+today = "2025-09-05"
+token = "f18abd53-51ef-42f1-bcb7-09956e20620e"
 positionMaps = {
     "H30533": "中国互联网50",
     "399296": "创成长",

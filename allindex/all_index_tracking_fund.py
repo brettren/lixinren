@@ -46,12 +46,16 @@ def get_tracking_fund(stockCode, country):
         summary.append([stockCode, ""])
         return
     index_funds = []
-    for d in response["data"]:
-        stock = Stock()
-        stock.code = d["stockCode"]
-        stock.shortName = d["shortName"]
-        index_funds.append(stock.shortName + "(" + stock.code + ")")
-    fund_list = ", ".join(index_funds)
+    if "data" in response and response["data"]:
+        for d in response["data"]:
+            stock = Stock()
+            stock.code = d["stockCode"]
+            stock.shortName = d["shortName"]
+            index_funds.append(stock.shortName + "(" + stock.code + ")")
+        fund_list = ", ".join(index_funds)
+    else:
+        print(f"stockCode: {stockCode} no 'data' in response")
+        fund_list = ""
     summary.append([stockCode, fund_list])
     print(f"stockCode: {stockCode} {fund_list}")
 
