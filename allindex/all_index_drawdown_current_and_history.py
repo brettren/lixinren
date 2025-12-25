@@ -29,8 +29,6 @@ funds = {}
 fund_styles = {}
 all_index_largest_drawdown = {}
 all_index_highest_index_in_history = {}
-all_index_drawdown_current_and_history_csv_file = "all_index_drawdown_current_and_history.csv"
-
 
 class Stock:
     def __int__(self, code, pe, pePos, peToLowest, pb, pbPos, pbToLowest, roe, roe_vs_pe, div, cp, highest_cp,
@@ -58,6 +56,7 @@ headers = {'Content-Type': 'application/json'}
 summary = list()
 summary.append([endDate, "stockCode", "publishDate", "stockName", "style", "hasPosition", "Current drawdown",
                 "Largest drawdown", "fall_to_lowest_drawdown", "pe", "pe10pos", "pb", "pb10pos", "roe", "div", "funds"])
+all_index_drawdown_current_and_history_csv_file = f"all_index_drawdown_current_and_history_{endDate}.csv"
 
 
 def get_index_codes(country):
@@ -105,7 +104,7 @@ def getFundamentalSubPart(valueMap, stockCodes, country):
             index.cp = cp
             pe = stock["pe_ttm.y10.mcw.cv"]
             index.pe = "{:.2}".format(pe)
-            index.pePos = stock["pb.y10.mcw.cvpos"]
+            index.pePos = stock["pe_ttm.y10.mcw.cvpos"]
             index.pb = "{:.2}".format(stock["pb.y10.mcw.cv"])
             index.pbPos = stock["pb.y10.mcw.cvpos"]
             roe = float(index.pb) / float(index.pe)
