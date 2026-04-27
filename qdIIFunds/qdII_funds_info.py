@@ -60,17 +60,17 @@ def writeJsonFile(data, file):
 
 qdIIFunds = get_qdII_funds_info()
 # filter the dollar funds
-qdIIFunds = list(filter(lambda x: '现汇' not in x.get('shortName'), qdIIFunds))
-qdIIFunds = list(filter(lambda x: '现钞' not in x.get('shortName'), qdIIFunds))
-qdIIFunds = list(filter(lambda x: 'C' not in x.get('shortName'), qdIIFunds))
-inactiveFundCodes = ['006778', '150175', '150169', '007628', '007629', '008357', '005440', '150176']
-qdIIFunds = list(filter(lambda x: x.get('stockCode') not in inactiveFundCodes, qdIIFunds))
+qdIIFunds['data'] = list(filter(lambda x: '现汇' not in x.get('shortName'), qdIIFunds['data']))
+qdIIFunds['data'] = list(filter(lambda x: '现钞' not in x.get('shortName'), qdIIFunds['data']))
+qdIIFunds['data'] = list(filter(lambda x: 'C' not in x.get('shortName'), qdIIFunds['data']))
+# inactiveFundCodes = ['006778', '150175', '150169', '007628', '007629', '008357', '005440', '150176']
+# qdIIFunds['data'] = list(filter(lambda x: x.get('stockCode') not in inactiveFundCodes, qdIIFunds['data']))
 fund_codes = [fund['stockCode'] for fund in qdIIFunds['data']]
 activeQdIIFunds = get_active_qdII_funds(fund_codes)
 active_fund_codes = [fund['stockCode'] for fund in activeQdIIFunds]
 # filter the inactive funds
 qdIIFunds = list(filter(lambda x: x.get('stockCode') in active_fund_codes, qdIIFunds['data']))
-writeJsonFile(qdIIFunds, "all_qdII_funds_info.json")
+writeJsonFile(qdIIFunds, f"all_qdII_funds_info_{endDate}.json")
 
 
 def get_response(url, data):
@@ -85,9 +85,9 @@ def getEachFundDrawdown(fund):
                                 "startDate": startDate,
                                 "endDate": endDate,
                                 "token": token,
-                                "granularity": "y",
+                                "granularity": "fs",
                             })
-    if response['message'] == 'success':
+    if response.get('message') == 'success':
         data = response['data']
         if len(data) == 0:
             print(fund['stockCode'] + " has No Drawback data")
@@ -105,13 +105,17 @@ def getEachFundDrawdown(fund):
         summary.append(
             [fund['fundSecondLevel'], fund['stockCode'], fund['inceptionDate'][0:10], fund['shortName'],
              currentDrawdownText, drawdown, toLowest, toHighest])
+        print(fund['stockCode'] + ' ' + fund['inceptionDate'][0:10] + ' ' + fund['shortName'] + ' ' +
+             currentDrawdownText + ' ' + drawdown + ' ' + toLowest + ' ' + toHighest)
     else:
-        print("Failed to fetch data")
+        print(f"Failed to fetch data {fund['stockCode']} {fund['shortName']}: {response}")
 
 
+print(endDate, "inceptionDate", "name", "", "Current drawdown", "Largest drawdown", "To lowest drawdown 📉🔽",
+                "To Highest required 📈🔼")
 for fund in qdIIFunds:
     getEachFundDrawdown(fund)
 summary[1:] = sorted(summary[1:], key=lambda index: float(index[6].replace("%", "")))
-with open('qdII_funds_drawdown.csv', 'w', encoding='utf_8_sig') as summaryf:
+with open(f'qdII_funds_drawdown_{endDate}.csv', 'w', encoding='utf_8_sig') as summaryf:
     writer = csv.writer(summaryf)
     writer.writerows(summary)
