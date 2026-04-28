@@ -5,22 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d11afa84-3aed-4df2-a1a5-d26d35c709ab" name="Default" comment="update data">
-      <change afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2026-01-07.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2026-01-07.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2026-04-24.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/get_highest_index.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qdIIFunds/all_index_drawdown_current_and_history_2026-04-24.xltx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qdIIFunds/all_qdII_funds_highest_index_fs.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qdIIFunds/all_qdII_funds_info_2026-01-07.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qdIIFunds/all_qdII_funds_largest_drawdown_fs.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qdIIFunds/qdII_funds_drawdown_2026-01-07.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qdIIFunds/qdII_funds_drawdown_2026-01-07.xlsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qdIIFunds/~$all_index_drawdown_current_and_history_2026-04-24.xltx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.claude/skills/portfolio-recommend/SKILL.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2026-04-24.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/allindex/generate_html_report.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2025-12-24.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2025-12-24.xlsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/allindex/~$all_index_drawdown_current_and_history_2025-12-24.xlsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/qdIIFunds/qdII_funds_info.py" beforeDir="false" afterPath="$PROJECT_DIR$/qdIIFunds/qdII_funds_info.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/allindex/all_index_style.csv" beforeDir="false" afterPath="$PROJECT_DIR$/allindex/all_index_style.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/qdIIFunds/~$all_index_drawdown_current_and_history_2026-04-24.xltx" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -86,6 +77,7 @@
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/allindex" />
       <recent name="$PROJECT_DIR$/qdIIFunds" />
       <recent name="$PROJECT_DIR$" />
     </key>
@@ -339,7 +331,23 @@
       <option name="project" value="LOCAL" />
       <updated>1766643118535</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="update data">
+      <option name="closed" value="true" />
+      <created>1777256621998</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1777256621998</updated>
+    </task>
+    <task id="LOCAL-00009" summary="update data">
+      <option name="closed" value="true" />
+      <created>1777256704745</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1777256704745</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TodoView">

@@ -7,6 +7,7 @@ A collection of Python scripts for fetching and analyzing Chinese stock index va
 - **Index Valuation Snapshot** (`lixinren.py`) — Fetches PE, PB, ROE, dividend yield, and percentile positions for A-share, Hong Kong, and industry indices. Outputs color-coded results to `stock_stat.xlsx`.
 - **Index Drawdown Analysis** (`index_drawdown.py`) — Calculates current and largest 3-year drawdowns for tracked indices, with distance-to-lowest and recovery-to-highest metrics.
 - **All-Index Drawdown & History** (`allindex/all_index_drawdown_current_and_history.py`) — Comprehensive drawdown analysis across all indices with fund tracking, style classification, and valuation data.
+- **Interactive HTML Report** (`allindex/generate_html_report.py`) — Generates a self-contained HTML page from drawdown CSV data with sortable columns, color-coded valuation metrics, composite scoring (PE/PB percentile + ROE + dividend + drawdown risk), and filters by market/style/position/score.
 - **Historical Index Data** (`index_history.py`) — Records weekly index fundamentals (PE, PB, PS, ROE, dividend, book value, earnings) to CSV and generates trend charts.
 - **Annual Return Summary** — Computes annual book value growth, earnings growth, and ROE for each tracked index.
 - **QDII Fund Analysis** (`qdIIFunds/qdII_funds_info.py`) — Fetches all active QDII funds, calculates drawdown metrics, and exports to CSV/Excel.
@@ -29,6 +30,7 @@ allindex/                # All-index analysis scripts
   all_index_highest_index_in_history.py
   all_index_tracking_fund.py
   all_index_drawdown.py
+  generate_html_report.py  # Interactive HTML report generator
 qdIIFunds/               # QDII fund analysis
   qdII_funds_info.py
 index/                   # Historical CSV data per index
@@ -73,4 +75,11 @@ python index_drawdown.py
 python get_highest_index.py
 cd allindex && python all_index_drawdown_current_and_history.py
 cd qdIIFunds && python qdII_funds_info.py
+```
+
+Generate the interactive HTML report:
+
+```bash
+cd allindex && python generate_html_report.py                          # auto-finds latest CSV
+cd allindex && python generate_html_report.py all_index_drawdown_current_and_history_2026-04-24.csv  # specific file
 ```
