@@ -4,14 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d11afa84-3aed-4df2-a1a5-d26d35c709ab" name="Default" comment="update data">
-      <change afterPath="$PROJECT_DIR$/.claude/skills/portfolio-recommend/SKILL.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2026-04-24.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/allindex/generate_html_report.py" afterDir="false" />
+    <list default="true" id="d11afa84-3aed-4df2-a1a5-d26d35c709ab" name="Default" comment="add SKILL.md">
+      <change afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2026-04-28.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/allindex/all_index_drawdown_current_and_history_2026-04-28.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/qdIIFunds/all_qdII_funds_info_2026-04-24.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/qdIIFunds/qdII_funds_drawdown_2026-04-24.csv" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/qdIIFunds/qdII_funds_drawdown_2026-04-24.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/allindex/all_index_style.csv" beforeDir="false" afterPath="$PROJECT_DIR$/allindex/all_index_style.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/qdIIFunds/~$all_index_drawdown_current_and_history_2026-04-24.xltx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/allindex/all_index_highest_index_in_history.csv" beforeDir="false" afterPath="$PROJECT_DIR$/allindex/all_index_highest_index_in_history.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/allindex/generate_html_report.py" beforeDir="false" afterPath="$PROJECT_DIR$/allindex/generate_html_report.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -42,26 +44,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.all_index_drawdown_current_and_history.executor&quot;: &quot;Run&quot;,
-    &quot;Python.all_index_highest_index_in_history.executor&quot;: &quot;Run&quot;,
-    &quot;Python.all_index_tracking_fund.executor&quot;: &quot;Run&quot;,
-    &quot;Python.fiori_doc_scrawler.executor&quot;: &quot;Run&quot;,
-    &quot;Python.fiori_docs_scrawler.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.fiori_table_of_content_link_scrawler.executor&quot;: &quot;Run&quot;,
-    &quot;Python.get_highest_index.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.qdII_funds_info.executor&quot;: &quot;Debug&quot;,
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;com.codeium.enabled&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/i336543/PycharmProjects/lixinren/allindex&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.all_index_drawdown_current_and_history.executor": "Run",
+    "Python.all_index_highest_index_in_history.executor": "Run",
+    "Python.all_index_tracking_fund.executor": "Run",
+    "Python.fiori_doc_scrawler.executor": "Run",
+    "Python.fiori_docs_scrawler.executor": "Debug",
+    "Python.fiori_table_of_content_link_scrawler.executor": "Run",
+    "Python.generate_html_report.executor": "Run",
+    "Python.get_highest_index.executor": "Debug",
+    "Python.qdII_funds_info.executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "com.codeium.enabled": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/i336543/PycharmProjects/lixinren/allindex",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
-}</component>
+}]]></component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
       <console-settings module-name="lixinren" is-module-sdk="true">
@@ -82,7 +85,7 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.all_index_drawdown_current_and_history">
+  <component name="RunManager" selected="Python.generate_html_report">
     <configuration name="all_index_drawdown_current_and_history" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="lixinren" />
       <option name="ENV_FILES" value="" />
@@ -105,28 +108,6 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="fiori_doc_scrawler" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="lixinren" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$USER_HOME$/Downloads" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$USER_HOME$/Downloads/fiori_doc_scrawler.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
     <configuration name="fiori_docs_scrawler" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="lixinren" />
       <option name="ENV_FILES" value="" />
@@ -141,6 +122,28 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$USER_HOME$/Downloads/fiori_docs_scrawler.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="generate_html_report" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="lixinren" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/allindex" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/allindex/generate_html_report.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -240,19 +243,19 @@
     <list>
       <item itemvalue="Python.index_drawdown" />
       <item itemvalue="Python.lixinren" />
+      <item itemvalue="Python.generate_html_report" />
       <item itemvalue="Python.all_index_drawdown_current_and_history" />
-      <item itemvalue="Python.fiori_doc_scrawler" />
       <item itemvalue="Python.fiori_docs_scrawler" />
       <item itemvalue="Python.get_highest_index" />
       <item itemvalue="Python.qdII_funds_info" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.generate_html_report" />
         <item itemvalue="Python.all_index_drawdown_current_and_history" />
-        <item itemvalue="Python.get_highest_index" />
         <item itemvalue="Python.qdII_funds_info" />
+        <item itemvalue="Python.get_highest_index" />
         <item itemvalue="Python.fiori_docs_scrawler" />
-        <item itemvalue="Python.fiori_doc_scrawler" />
       </list>
     </recent_temporary>
   </component>
@@ -347,7 +350,15 @@
       <option name="project" value="LOCAL" />
       <updated>1777256704745</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="add SKILL.md">
+      <option name="closed" value="true" />
+      <created>1777390178954</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1777390178954</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TodoView">
@@ -375,7 +386,8 @@
     <MESSAGE value="add all_index_highest_index_in_history" />
     <MESSAGE value="update all_index_highest_index_in_history" />
     <MESSAGE value="update data" />
-    <option name="LAST_COMMIT_MESSAGE" value="update data" />
+    <MESSAGE value="add SKILL.md" />
+    <option name="LAST_COMMIT_MESSAGE" value="add SKILL.md" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -14,6 +14,43 @@ def find_latest_csv():
         return None
     return max(files)
 
+def find_latest_qdii_csv():
+    pattern = os.path.join(os.path.dirname(__file__), "..", "qdIIFunds", "qdII_funds_drawdown_2*.csv")
+    files = glob.glob(pattern)
+    if not files:
+        return None
+    return max(files)
+
+def load_qdii_data(csv_path):
+    rows = []
+    date_str = ''
+    with open(csv_path, 'r', encoding='utf_8_sig') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        date_str = header[0] if header else ''
+        for row in reader:
+            if len(row) < 8:
+                continue
+            parsed = {
+                'current_drawdown': parse_percent(row[4]),
+                'largest_drawdown': parse_percent(row[5]),
+                'to_lowest': parse_percent(row[6]),
+                'to_highest': parse_percent(row[7]),
+            }
+            rows.append({
+                'sector': row[0],
+                'code': row[1],
+                'publishDate': row[2],
+                'name': row[3],
+                'current_drawdown': row[4],
+                'largest_drawdown': row[5],
+                'to_lowest': row[6],
+                'to_highest': row[7],
+                '_parsed': parsed,
+                'score': score_qdii(parsed),
+            })
+    return rows, date_str
+
 def parse_percent(s):
     if not s or s.strip() == '':
         return None
@@ -78,6 +115,56 @@ def score_index(row):
             score += 8
         elif div > 1:
             score += 3
+    return score
+
+def score_qdii(parsed):
+    score = 0
+    to_lowest = parsed.get('to_lowest')
+    if to_lowest is not None:
+        if to_lowest <= 2:
+            score += 40
+        elif to_lowest <= 5:
+            score += 35
+        elif to_lowest <= 10:
+            score += 28
+        elif to_lowest <= 15:
+            score += 20
+        elif to_lowest <= 25:
+            score += 12
+        elif to_lowest <= 40:
+            score += 5
+    curr_dd = parsed.get('current_drawdown')
+    if curr_dd is not None:
+        if curr_dd < -40:
+            score += 30
+        elif curr_dd < -25:
+            score += 25
+        elif curr_dd < -15:
+            score += 20
+        elif curr_dd < -5:
+            score += 12
+        elif curr_dd < 0:
+            score += 5
+    largest_dd = parsed.get('largest_drawdown')
+    if largest_dd is not None:
+        if largest_dd > -15:
+            score += 15
+        elif largest_dd > -25:
+            score += 12
+        elif largest_dd > -40:
+            score += 8
+        elif largest_dd > -60:
+            score += 4
+    to_highest = parsed.get('to_highest')
+    if to_highest is not None:
+        if to_highest <= 3:
+            score += 15
+        elif to_highest <= 10:
+            score += 12
+        elif to_highest <= 20:
+            score += 8
+        elif to_highest <= 35:
+            score += 4
     return score
 
 def color_class_ftld(val):
@@ -152,7 +239,7 @@ def color_class_score(val):
         return 'bg-yellow'
     return 'bg-red'
 
-def generate_html(csv_path, output_path):
+def generate_html(csv_path, output_path, qdii_csv_path=None):
     rows = []
     with open(csv_path, 'r', encoding='utf_8_sig') as f:
         reader = csv.reader(f)
@@ -232,6 +319,23 @@ def generate_html(csv_path, output_path):
     theme_colors_js = ',\n  '.join(f"'{t}':'{c}'" for t, c in theme_colors.items())
     overlap_caps = portfolios.get('_overlap_caps', {'消费': 25, '医药': 20, '互联网': 15})
     overlap_caps_js = '{' + ','.join(f"'{k}':{v}" for k, v in overlap_caps.items()) + '}'
+
+    qdii_rows = []
+    qdii_date_str = ''
+    qdii_json = '[]'
+    if qdii_csv_path and os.path.exists(qdii_csv_path):
+        qdii_rows, qdii_date_str = load_qdii_data(qdii_csv_path)
+        qdii_json_parts = []
+        for r in qdii_rows:
+            p = r['_parsed']
+            qdii_json_parts.append(
+                f'["{esc(r["code"])}","{esc(r["publishDate"])}","{esc(r["name"])}",'
+                f'"{esc(r["current_drawdown"])}","{esc(r["largest_drawdown"])}",'
+                f'"{esc(r["to_lowest"])}","{esc(r["to_highest"])}",'
+                f'{json_num(p["current_drawdown"])},{json_num(p["largest_drawdown"])},'
+                f'{json_num(p["to_lowest"])},{json_num(p["to_highest"])},{r["score"]}]'
+            )
+        qdii_json = ',\n'.join(qdii_json_parts)
     html_content = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -470,6 +574,66 @@ tr.has-position {{ font-weight: 600; }}
 </table>
 <div id="nodata">没有匹配的数据</div>
 </div>
+
+<div class="rec-section" style="margin-top:12px;">
+<div class="rec-header" onclick="toggleQdii()">
+<h2>QDII基金回撤分析 ({len(qdii_rows)}只, {qdii_date_str})</h2>
+<span class="rec-arrow" id="qdiiArrow">▼</span>
+</div>
+<div class="rec-body" id="qdiiBody">
+<div class="legend" style="margin-bottom:8px;">
+<span style="font-weight:600;">评分:</span>
+<span>距最低(40) + 当前回撤深度(30) + 最大回撤控制(15) + 距最高(15) = 满分100</span>
+</div>
+<div class="controls">
+<div class="filter-group">
+<label>搜索:</label>
+<input type="text" id="qdiiSearch" placeholder="名称/代码..." oninput="qdiiApplyFilter()">
+</div>
+<div class="filter-group">
+<label>距最低≤:</label>
+<select id="qdiiToLowestFilter" onchange="qdiiApplyFilter()">
+<option value="999">全部</option>
+<option value="5">≤5%</option>
+<option value="10">≤10%</option>
+<option value="15">≤15%</option>
+<option value="20">≤20%</option>
+<option value="30">≤30%</option>
+</select>
+</div>
+<div class="filter-group">
+<label>评分≥:</label>
+<select id="qdiiScoreFilter" onchange="qdiiApplyFilter()">
+<option value="0">全部</option>
+<option value="40">40+</option>
+<option value="50">50+</option>
+<option value="60">60+</option>
+<option value="70">70+</option>
+<option value="80">80+</option>
+</select>
+</div>
+<button onclick="qdiiReset()">重置</button>
+</div>
+<div class="stats" id="qdiiStats"></div>
+<div class="table-wrap" style="max-height:calc(100vh - 220px);">
+<table id="qdiiTable">
+<thead><tr>
+<th onclick="qdiiSortBy(0)">代码 <span class="sort-arrow" id="qArrow0"></span></th>
+<th onclick="qdiiSortBy(1)">成立日期 <span class="sort-arrow" id="qArrow1"></span></th>
+<th onclick="qdiiSortBy(2)">基金名称 <span class="sort-arrow" id="qArrow2"></span></th>
+<th onclick="qdiiSortBy(7)" title="回撤评分(满分100)">评分 <span class="sort-arrow" id="qArrow7"></span></th>
+<th onclick="qdiiSortBy(3)" title="当前回撤">当前回撤 <span class="sort-arrow" id="qArrow3"></span></th>
+<th onclick="qdiiSortBy(4)" title="历史最大回撤">最大回撤 <span class="sort-arrow" id="qArrow4"></span></th>
+<th onclick="qdiiSortBy(5)" title="距历史最低还有多远(越小越安全)">距最低↓ <span class="sort-arrow" id="qArrow5"></span></th>
+<th onclick="qdiiSortBy(6)" title="回到历史最高需要涨多少">距最高↑ <span class="sort-arrow" id="qArrow6"></span></th>
+</tr></thead>
+<tbody id="qdiiTbody"></tbody>
+</table>
+<div id="qdiiNodata" style="display:none;padding:40px;text-align:center;color:#999;">没有匹配的数据</div>
+</div>
+</div>
+</div>
+
 </div>
 
 <script>
@@ -783,6 +947,141 @@ function colorFtldStr(s) {{
   if(v>-15) return 'bg-green-strong'; if(v>-25) return 'bg-green';
   if(v>-35) return 'bg-green-light'; if(v>-50) return 'bg-yellow'; return 'bg-red';
 }}
+
+const QDII_DATA=[
+{qdii_json}
+];
+// QDII columns: 0=code,1=pubDate,2=name,3=currDD,4=largestDD,5=toLowest,6=toHighest,
+// 7=currDD_n,8=largestDD_n,9=toLowest_n,10=toHighest_n,11=score
+
+let qdiiSortCol = 11;
+let qdiiSortAsc = false;
+let qdiiFiltered = [...Array(QDII_DATA.length).keys()];
+
+function toggleQdii() {{
+  const body = document.getElementById('qdiiBody');
+  const arrow = document.getElementById('qdiiArrow');
+  const isOpen = body.classList.toggle('open');
+  arrow.classList.toggle('open', isOpen);
+  if(isOpen && !body.dataset.init) {{
+    body.dataset.init = '1';
+    qdiiRenderTable();
+  }}
+}}
+
+function qdiiSortBy(col) {{
+  if(qdiiSortCol === col) qdiiSortAsc = !qdiiSortAsc;
+  else {{ qdiiSortCol = col; qdiiSortAsc = (col<=2); }}
+  qdiiRenderTable();
+}}
+
+function qdiiGetVal(idx, col) {{
+  const r = QDII_DATA[idx];
+  if(col<=2) return r[col];
+  if(col===3) return r[7];
+  if(col===4) return r[8];
+  if(col===5) return r[9];
+  if(col===6) return r[10];
+  if(col===7) return r[11];
+  return r[col];
+}}
+
+function qdiiApplyFilter() {{
+  const search = document.getElementById('qdiiSearch').value.toLowerCase();
+  const maxToLowest = parseFloat(document.getElementById('qdiiToLowestFilter').value);
+  const minScore = parseInt(document.getElementById('qdiiScoreFilter').value);
+  qdiiFiltered = [];
+  for(let i=0; i<QDII_DATA.length; i++) {{
+    const r = QDII_DATA[i];
+    if(maxToLowest < 999 && r[9] !== null && r[9] > maxToLowest) continue;
+    if(r[11] < minScore) continue;
+    if(search) {{
+      const hay = (r[0]+r[2]).toLowerCase();
+      if(!hay.includes(search)) continue;
+    }}
+    qdiiFiltered.push(i);
+  }}
+  qdiiRenderTable();
+}}
+
+function qdiiReset() {{
+  document.getElementById('qdiiSearch').value = '';
+  document.getElementById('qdiiToLowestFilter').value = '999';
+  document.getElementById('qdiiScoreFilter').value = '0';
+  qdiiFiltered = [...Array(QDII_DATA.length).keys()];
+  qdiiRenderTable();
+}}
+
+function qdiiColorDD(v) {{
+  if(v===null) return '';
+  if(v>-5) return 'bg-green-strong';
+  if(v>-15) return 'bg-green';
+  if(v>-25) return 'bg-green-light';
+  if(v>-40) return 'bg-yellow';
+  return 'bg-red';
+}}
+
+function qdiiColorToLowest(v) {{
+  if(v===null) return '';
+  if(v<=2) return 'bg-green-strong';
+  if(v<=5) return 'bg-green';
+  if(v<=10) return 'bg-green-light';
+  if(v<=20) return 'bg-yellow';
+  return 'bg-red';
+}}
+
+function qdiiColorScore(v) {{
+  if(v>=80) return 'bg-green-strong';
+  if(v>=60) return 'bg-green';
+  if(v>=40) return 'bg-green-light';
+  if(v>=20) return 'bg-yellow';
+  return 'bg-red';
+}}
+
+function qdiiRenderTable() {{
+  qdiiFiltered.sort((a,b) => {{
+    let va = qdiiGetVal(a, qdiiSortCol);
+    let vb = qdiiGetVal(b, qdiiSortCol);
+    if(va===null) va = qdiiSortAsc ? 99999 : -99999;
+    if(vb===null) vb = qdiiSortAsc ? 99999 : -99999;
+    if(typeof va==='string') return qdiiSortAsc ? va.localeCompare(vb,'zh') : vb.localeCompare(va,'zh');
+    return qdiiSortAsc ? va-vb : vb-va;
+  }});
+
+  for(let i=0; i<=7; i++) {{
+    const el = document.getElementById('qArrow'+i);
+    if(el) el.textContent = qdiiSortCol===i ? (qdiiSortAsc ? '▲' : '▼') : '';
+  }}
+
+  const tbody = document.getElementById('qdiiTbody');
+  const nodata = document.getElementById('qdiiNodata');
+  if(qdiiFiltered.length===0) {{
+    tbody.innerHTML='';
+    nodata.style.display='block';
+  }} else {{
+    nodata.style.display='none';
+    const parts = [];
+    for(const idx of qdiiFiltered) {{
+      const r = QDII_DATA[idx];
+      parts.push(
+        '<tr>' +
+        '<td>'+r[0]+'</td>' +
+        '<td style="color:#888;font-size:11px">'+r[1]+'</td>' +
+        '<td style="font-weight:500">'+r[2]+'</td>' +
+        '<td class="score-cell '+qdiiColorScore(r[11])+'">'+r[11]+'</td>' +
+        '<td class="'+qdiiColorDD(r[7])+'">'+r[3]+'</td>' +
+        '<td class="neg-val">'+r[4]+'</td>' +
+        '<td class="'+qdiiColorToLowest(r[9])+'">'+r[5]+'</td>' +
+        '<td>'+r[6]+'</td>' +
+        '</tr>'
+      );
+    }}
+    tbody.innerHTML = parts.join('');
+  }}
+  document.getElementById('qdiiStats').textContent =
+    '显示 '+qdiiFiltered.length+' / '+QDII_DATA.length+' 只QDII基金' +
+    (qdiiFiltered.length>0 ? ' | 平均评分: '+(qdiiFiltered.reduce((s,i)=>s+QDII_DATA[i][11],0)/qdiiFiltered.length).toFixed(1) : '');
+}}
 </script>
 </body>
 </html>'''
@@ -1043,4 +1342,5 @@ if __name__ == '__main__':
         sys.exit(1)
     base = os.path.splitext(csv_path)[0]
     output_path = base + '.html'
-    generate_html(csv_path, output_path)
+    qdii_csv_path = find_latest_qdii_csv()
+    generate_html(csv_path, output_path, qdii_csv_path)
