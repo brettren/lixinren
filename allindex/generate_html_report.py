@@ -221,6 +221,7 @@ def generate_scatter_svg(rows):
         points.append({
             'x': min(p['roe'], 30),
             'y': p['pe10pos'],
+            'pb10pos': p.get('pb10pos'),
             'name': r['stockName'],
             'code': r['stockCode'],
             'theme': theme,
@@ -228,54 +229,83 @@ def generate_scatter_svg(rows):
             'score': r['score'],
         })
 
+    theme_colors_map = {
+        '消费': '#e74c3c', '医药': '#27ae60', '互联网': '#8e44ad',
+        '金融': '#f39c12', '红利': '#c0392b', '家电': '#2980b9',
+        '基建': '#7f8c8d', '养老': '#16a085', '港股': '#3498db',
+        '科技': '#9b59b6', '新能源': '#2ecc71', '军工': '#34495e',
+        '资源': '#d35400', '汽车': '#1abc9c', '地产': '#e67e22',
+        '制造': '#607d8b', '宽基': '#3f51b5', '传媒': '#ff6f61',
+        '运输': '#6b5b95', '环保': '#88b04b', '其他': '#95a5a6',
+    }
+
+    pe_svg = _build_scatter(points, theme_colors_map, x_key='x', y_key='y',
+                            x_label='ROE', y_label='PE百分位',
+                            x_max=30, y_max=100,
+                            value_zone=(10, 30, 0, 30),
+                            tip_fmt=lambda pt: f'{pt["name"]}&#10;ROE:{pt["x"]:.1f}% PE位:{pt["y"]:.1f}%&#10;评分:{pt["score"]} {pt["theme"]}')
+
+    pb_svg = _build_scatter(points, theme_colors_map, x_key='x', y_key='pb10pos',
+                            x_label='ROE', y_label='PB百分位',
+                            x_max=30, y_max=100,
+                            value_zone=(10, 30, 0, 30),
+                            tip_fmt=lambda pt: f'{pt["name"]}&#10;ROE:{pt["x"]:.1f}% PB位:{pt["pb10pos"]:.1f}%&#10;评分:{pt["score"]} {pt["theme"]}',
+                            legend=False)
+
+    return pe_svg, pb_svg
+
+
+def _build_scatter(points, theme_colors_map, x_key, y_key, x_label, y_label,
+                   x_max, y_max, value_zone, tip_fmt, legend=True):
     w, h = 640, 400
     pad_l, pad_r, pad_t, pad_b = 50, 20, 20, 40
     chart_w = w - pad_l - pad_r
     chart_h = h - pad_t - pad_b
 
     def scale_x(v):
-        return pad_l + (v / 30.0) * chart_w
+        return pad_l + (v / x_max) * chart_w
 
     def scale_y(v):
-        return pad_t + (v / 100.0) * chart_h
-
-    theme_colors_map = {
-        '消费': '#e74c3c', '医药': '#27ae60', '互联网': '#8e44ad',
-        '金融': '#f39c12', '红利': '#c0392b', '家电': '#2980b9',
-        '基建': '#7f8c8d', '养老': '#16a085', '港股': '#3498db', '其他': '#95a5a6',
-    }
+        return pad_t + (v / y_max) * chart_h
 
     svg_parts = [f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;font-family:sans-serif;">']
-    svg_parts.append(f'<rect x="{scale_x(10)}" y="{scale_y(0)}" width="{scale_x(30)-scale_x(10)}" height="{scale_y(30)-scale_y(0)}" fill="#27ae60" fill-opacity="0.06" />')
-    svg_parts.append(f'<text x="{scale_x(20)}" y="{scale_y(15)}" text-anchor="middle" font-size="10" fill="#27ae60" opacity="0.5">价值区</text>')
+
+    vx0, vx1, vy0, vy1 = value_zone
+    svg_parts.append(f'<rect x="{scale_x(vx0)}" y="{scale_y(vy0)}" width="{scale_x(vx1)-scale_x(vx0)}" height="{scale_y(vy1)-scale_y(vy0)}" fill="#27ae60" fill-opacity="0.06" />')
+    svg_parts.append(f'<text x="{scale_x((vx0+vx1)/2)}" y="{scale_y((vy0+vy1)/2)}" text-anchor="middle" font-size="10" fill="#27ae60" opacity="0.5">价值区</text>')
 
     for v in [0, 20, 50, 80, 100]:
         y = scale_y(v)
         svg_parts.append(f'<line x1="{pad_l}" y1="{y}" x2="{w-pad_r}" y2="{y}" stroke="#eee" stroke-width="0.5"/>')
         svg_parts.append(f'<text x="{pad_l-5}" y="{y+3}" text-anchor="end" font-size="9" fill="#888">{v}%</text>')
-    for v in [0, 5, 10, 15, 20, 25, 30]:
+    for v in range(0, x_max + 1, 5):
         x = scale_x(v)
         svg_parts.append(f'<line x1="{x}" y1="{pad_t}" x2="{x}" y2="{h-pad_b}" stroke="#eee" stroke-width="0.5"/>')
         svg_parts.append(f'<text x="{x}" y="{h-pad_b+14}" text-anchor="middle" font-size="9" fill="#888">{v}%</text>')
 
-    svg_parts.append(f'<text x="{w/2}" y="{h-5}" text-anchor="middle" font-size="10" fill="#555">ROE</text>')
-    svg_parts.append(f'<text x="12" y="{h/2}" text-anchor="middle" font-size="10" fill="#555" transform="rotate(-90,12,{h/2})">PE百分位</text>')
+    svg_parts.append(f'<text x="{w/2}" y="{h-5}" text-anchor="middle" font-size="10" fill="#555">{x_label}</text>')
+    svg_parts.append(f'<text x="12" y="{h/2}" text-anchor="middle" font-size="10" fill="#555" transform="rotate(-90,12,{h/2})">{y_label}</text>')
 
     for pt in points:
-        cx = scale_x(pt['x'])
-        cy = scale_y(pt['y'])
+        yval = pt.get(y_key)
+        if yval is None:
+            continue
+        cx = scale_x(pt[x_key])
+        cy = scale_y(yval)
         color = theme_colors_map.get(pt['theme'], '#95a5a6')
         r = 5 if pt['held'] else 3
         stroke = ' stroke="#333" stroke-width="1.5"' if pt['held'] else ''
         opacity = '0.8' if pt['held'] else '0.55'
-        svg_parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{color}" opacity="{opacity}"{stroke}><title>{pt["name"]} (ROE:{pt["x"]:.1f}%, PE位:{pt["y"]:.1f}%, 评分:{pt["score"]})</title></circle>')
+        tip = tip_fmt(pt)
+        svg_parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{color}" opacity="{opacity}"{stroke} data-tip="{tip}" onmousemove="showTip(evt)" onmouseout="hideTip()" style="cursor:pointer;"/>')
 
-    legend_x = pad_l + 5
-    legend_y = pad_t + 5
-    svg_parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="80" height="{len(theme_colors_map)*13+4}" fill="white" fill-opacity="0.85" rx="3"/>')
-    for i, (t, c) in enumerate(theme_colors_map.items()):
-        svg_parts.append(f'<circle cx="{legend_x+8}" cy="{legend_y+10+i*13}" r="3" fill="{c}"/>')
-        svg_parts.append(f'<text x="{legend_x+15}" y="{legend_y+13+i*13}" font-size="8" fill="#555">{t}</text>')
+    if legend:
+        legend_x = pad_l + 5
+        legend_y = pad_t + 5
+        svg_parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="80" height="{len(theme_colors_map)*13+4}" fill="white" fill-opacity="0.85" rx="3"/>')
+        for i, (t, c) in enumerate(theme_colors_map.items()):
+            svg_parts.append(f'<circle cx="{legend_x+8}" cy="{legend_y+10+i*13}" r="3" fill="{c}"/>')
+            svg_parts.append(f'<text x="{legend_x+15}" y="{legend_y+13+i*13}" font-size="8" fill="#555">{t}</text>')
 
     svg_parts.append('</svg>')
     return '\n'.join(svg_parts)
@@ -485,7 +515,7 @@ def generate_html(csv_path, output_path, qdii_csv_path=None):
         qdii_json = ',\n'.join(qdii_json_parts)
 
     position_pcts, position_total = compute_position_concentration(rows)
-    scatter_svg = generate_scatter_svg(rows)
+    scatter_pe_svg, scatter_pb_svg = generate_scatter_svg(rows)
 
     all_theme_colors = {
         '消费': '#e74c3c', '医药': '#27ae60', '互联网': '#8e44ad',
@@ -591,7 +621,8 @@ tr.has-position {{ font-weight: 600; }}
 .divergence-low {{ background: #f39c12; }}
 .analysis-section {{ background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.12); margin-bottom: 12px; padding: 16px; }}
 .analysis-section h3 {{ font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 10px; }}
-.scatter-wrap {{ text-align: center; margin: 8px 0; }}
+.scatter-wrap {{ text-align: center; margin: 8px 0; position: relative; }}
+#scatterTip {{ position: fixed; pointer-events: none; background: rgba(44,62,80,.92); color: #fff; padding: 6px 10px; border-radius: 5px; font-size: 12px; line-height: 1.5; white-space: pre-line; display: none; z-index: 999; box-shadow: 0 2px 8px rgba(0,0,0,.25); }}
 .opp-badge {{ font-size: 10px; color: #888; }}
 .opp-reached {{ color: #27ae60; font-weight: 600; font-size: 10px; }}
 .extra-col {{ font-size: 11px; }}
@@ -762,10 +793,18 @@ tr.has-position {{ font-weight: 600; }}
 </div>
 
 <div class="analysis-section">
-<h3>ROE-估值象限图 <span style="font-size:11px;color:#888;font-weight:400;">(右下方=高ROE+低估值=价值区 | 实心大圆=持仓)</span></h3>
-<div class="scatter-wrap">
-{scatter_svg}
+<h3>ROE-估值象限图 <span style="font-size:11px;color:#888;font-weight:400;">(右下方=高ROE+低估值=价值区 | 实心大圆=持仓 | 鼠标悬停查看详情)</span></h3>
+<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;">
+<div class="scatter-wrap" style="flex:1;min-width:320px;">
+<div style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px;">PE百分位 vs ROE</div>
+{scatter_pe_svg}
 </div>
+<div class="scatter-wrap" style="flex:1;min-width:320px;">
+<div style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px;">PB百分位 vs ROE</div>
+{scatter_pb_svg}
+</div>
+</div>
+<div id="scatterTip"></div>
 </div>
 
 <div class="table-wrap">
@@ -861,6 +900,16 @@ tr.has-position {{ font-weight: 600; }}
 </div>
 
 <script>
+function showTip(evt) {{
+  var tip = document.getElementById('scatterTip');
+  tip.textContent = evt.target.getAttribute('data-tip');
+  tip.style.display = 'block';
+  tip.style.left = (evt.clientX + 12) + 'px';
+  tip.style.top = (evt.clientY - 10) + 'px';
+}}
+function hideTip() {{
+  document.getElementById('scatterTip').style.display = 'none';
+}}
 const DATA=[
 {rows_json}
 ];
@@ -1383,16 +1432,38 @@ function qdiiRenderTable() {{
 
 
 def classify_theme(name):
-    consumer_keys = ['消费', '白酒', '食品', '酒', '饮']
-    medical_keys = ['医', '药', '生科']
-    internet_keys = ['互联网']
-    finance_keys = ['证券', '非银', '金融', '证保']
-    dividend_keys = ['红利']
-    appliance_keys = ['家用电器', '家电']
-    infra_keys = ['一带一路', '基建']
+    consumer_keys = ['消费', '白酒', '食品', '酒', '饮', '农业', '粮食', '畜牧', '生猪', '可选']
+    medical_keys = ['医', '药', '生科', '疫苗', '健康']
+    internet_keys = ['互联网', '线上']
+    finance_keys = ['证券', '非银', '金融', '证保', '银行', '保险']
+    dividend_keys = ['红利', '高股息', '股息', '现金流']
+    appliance_keys = ['家用电器', '家电', '龙头家电']
+    infra_keys = ['一带一路', '基建', '建筑材料', '高铁']
     eldercare_keys = ['养老']
-    hk_consumer_keys = ['恒生消费']
-    for k in hk_consumer_keys:
+    hk_keys = ['恒生', '恒指', '港股', 'HK', 'HKC', '港中小', '香港']
+    tech_keys = ['科技', '科创', '人工智', 'AI', '计算机', '软件', '信息', '信创', '云计算',
+                 '数字', '电子', '半导体', '芯片', '5G', '通信', '物联网', 'TMT',
+                 '区块链', '智能', '机器人', 'VR', '算力']
+    newenergy_keys = ['新能源', '新能车', '光伏', '电池', '储能', '风电', '碳中和',
+                      '绿色电力', '绿色能源', '电力', '低碳']
+    military_keys = ['军工', '国防', '空天']
+    resource_keys = ['有色', '稀土', '资源', '煤炭', '钢铁', '石化', '油气',
+                     '大宗商品', '材料', '化工', '黄金', '稀金属']
+    auto_keys = ['汽车', '电车', '智能汽车', '智能电车']
+    realestate_keys = ['地产', '房地产']
+    manufacturing_keys = ['制造', '机械', '工业', '装备', '机床', '高端造', '工程',
+                          '高装']
+    media_keys = ['传媒', '影视', '娱乐', '游戏', '动漫']
+    transport_keys = ['运输', '物流']
+    env_keys = ['环保', '环境']
+    broad_keys = ['沪深300', '中证500', '中证1000', '中证800', '中证200', '中证700',
+                  '中证2000', '上证50', '上证180', '上证380', '创业板指', '创业板',
+                  '深证100', '深证300', '科创50', '北证50', 'A500', 'A50', 'A100',
+                  '巨潮', '全指', '500等权', '800等权', '中小板', '大盘', '中盘', '小盘',
+                  '沪深B', '深圳A', '深圳B', '上海A', '深证成指', '上证指数',
+                  '中创', '深证50', '中证龙头', '沪港深', '价值', '成长',
+                  '国企', '央企', '质量', 'SNLV', '基本面']
+    for k in hk_keys:
         if k in name:
             return '港股'
     for k in eldercare_keys:
@@ -1416,9 +1487,42 @@ def classify_theme(name):
     for k in medical_keys:
         if k in name:
             return '医药'
+    for k in newenergy_keys:
+        if k in name:
+            return '新能源'
+    for k in auto_keys:
+        if k in name:
+            return '汽车'
+    for k in military_keys:
+        if k in name:
+            return '军工'
+    for k in tech_keys:
+        if k in name:
+            return '科技'
+    for k in resource_keys:
+        if k in name:
+            return '资源'
+    for k in realestate_keys:
+        if k in name:
+            return '地产'
+    for k in manufacturing_keys:
+        if k in name:
+            return '制造'
+    for k in media_keys:
+        if k in name:
+            return '传媒'
+    for k in transport_keys:
+        if k in name:
+            return '运输'
+    for k in env_keys:
+        if k in name:
+            return '环保'
     for k in consumer_keys:
         if k in name:
             return '消费'
+    for k in broad_keys:
+        if k in name:
+            return '宽基'
     return None
 
 

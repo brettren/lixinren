@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# JetBrains IDE
+.idea/
+
+# Office temp/lock files
+~$*
+
+# Binary outputs
+*.xlsx
+*.xltx
+*.pdf
+config.py
