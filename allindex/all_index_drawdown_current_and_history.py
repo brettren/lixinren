@@ -17,6 +17,8 @@ metricsList = [
     "cp",
     "pe_ttm.y10.mcw",
     "pb.y10.mcw",
+    "pe_ttm.y5.mcw",
+    "pb.y5.mcw",
     "dyr.mcw"
 ]
 stockMapsCN = {
@@ -55,7 +57,8 @@ startDate = (datetime.datetime.today() - datetime.timedelta(weeks=52 * 10)).strf
 headers = {'Content-Type': 'application/json'}
 summary = list()
 summary.append([endDate, "stockCode", "publishDate", "stockName", "style", "hasPosition", "Current drawdown",
-                "Largest drawdown", "fall_to_lowest_drawdown", "pe", "pe10pos", "pb", "pb10pos", "roe", "div", "funds"])
+                "Largest drawdown", "fall_to_lowest_drawdown", "pe", "pe10pos", "pb", "pb10pos", "roe", "div", "funds",
+                "pe5pos", "pb5pos", "pe_pb_divergence", "val_adj_div"])
 all_index_drawdown_current_and_history_csv_file = f"all_index_drawdown_current_and_history_{endDate}.csv"
 
 
@@ -99,6 +102,8 @@ def getFundamentalSubPart(valueMap, stockCodes, country):
     for stock in response["data"]:
         index = Stock()
         index.code = stock["stockCode"]
+        index.pe5Pos = None
+        index.pb5Pos = None
         try:
             cp = stock["cp"]
             index.cp = cp
@@ -112,6 +117,10 @@ def getFundamentalSubPart(valueMap, stockCodes, country):
             if "dyr.mcw" in stock:
                 dividend = stock["dyr.mcw"]
                 index.div = "{:.2%}".format(dividend)
+            if "pe_ttm.y5.mcw.cvpos" in stock:
+                index.pe5Pos = stock["pe_ttm.y5.mcw.cvpos"]
+            if "pb.y5.mcw.cvpos" in stock:
+                index.pb5Pos = stock["pb.y5.mcw.cvpos"]
         except:
             print(f"{index.code} cannot get cp")
         valueMap[stock["stockCode"]] = index
@@ -159,12 +168,25 @@ def log_each_index_info(sector, code, publishDate, valueInfo, value):
         largest_drawdown_float = float(largest_drawdown.strip('%')) / 100
         fall_to_lowest_drawdown = (1 + largest_drawdown_float) / (1 + current_drawdown_float) - 1
         hasPosition = "*" if code in config.positionMaps.keys() else ""
-        # endDate, "stockCode", "publishDate", "stockName", "style", "hasPosition", "Current drawdown",
-        # "Largest drawdown", "fall_to_lowest_drawdown", "pe", "pe10pos", "pb", "pb10pos", "roe", "div", "funds"
+
+        pe_pb_divergence = ""
+        if valueInfo.pePos is not None and valueInfo.pbPos is not None:
+            divergence = valueInfo.pePos - valueInfo.pbPos
+            pe_pb_divergence = "{:.2%}".format(divergence)
+
+        val_adj_div = ""
+        if hasattr(valueInfo, 'div') and valueInfo.div:
+            div_float = float(valueInfo.div.strip('%')) / 100
+            if current_drawdown_float != 0:
+                val_adj_div = "{:.2%}".format(div_float / (1 + current_drawdown_float))
+
         summary.append([sector, code, publishDate, value, fund_styles.get(code), hasPosition, current_drawdown,
                         largest_drawdown, "{:.2%}".format(fall_to_lowest_drawdown), valueInfo.pe,
                         "{:.2%}".format(valueInfo.pePos), valueInfo.pb, "{:.2%}".format(valueInfo.pbPos), valueInfo.roe,
-                        valueInfo.div, funds.get(code)])
+                        valueInfo.div, funds.get(code),
+                        "{:.2%}".format(valueInfo.pe5Pos) if valueInfo.pe5Pos is not None else "",
+                        "{:.2%}".format(valueInfo.pb5Pos) if valueInfo.pb5Pos is not None else "",
+                        pe_pb_divergence, val_adj_div])
     except Exception as e:
         print(str(e))
 

@@ -6,6 +6,7 @@ import os
 import html
 import re
 import glob
+from datetime import datetime, timezone, timedelta
 
 def find_latest_csv():
     pattern = os.path.join(os.path.dirname(__file__), "all_index_drawdown_current_and_history_2*.csv")
@@ -13,6 +14,13 @@ def find_latest_csv():
     if not files:
         return None
     return max(files)
+
+def find_second_latest_csv():
+    pattern = os.path.join(os.path.dirname(__file__), "all_index_drawdown_current_and_history_2*.csv")
+    files = sorted(glob.glob(pattern))
+    if len(files) < 2:
+        return None
+    return files[-2]
 
 def find_latest_qdii_csv():
     pattern = os.path.join(os.path.dirname(__file__), "..", "qdIIFunds", "qdII_funds_drawdown_2*.csv")
@@ -167,6 +175,111 @@ def score_qdii(parsed):
             score += 4
     return score
 
+def load_previous_data(csv_path):
+    prev = {}
+    if not csv_path or not os.path.exists(csv_path):
+        return prev, ''
+    with open(csv_path, 'r', encoding='utf_8_sig') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        prev_date = header[0] if header else ''
+        for row in reader:
+            if len(row) < 16:
+                continue
+            code = row[1]
+            parsed = {
+                'fall_to_lowest_drawdown': parse_percent(row[8]),
+                'pe10pos': parse_percent(row[10]),
+                'pb10pos': parse_percent(row[12]),
+                'roe': parse_percent(row[13]),
+                'div': parse_percent(row[14]),
+            }
+            prev[code] = {
+                'pe10pos': parsed['pe10pos'],
+                'pb10pos': parsed['pb10pos'],
+                'score': score_index({'_parsed': parsed}),
+            }
+    return prev, prev_date
+
+def compute_position_concentration(rows):
+    held = [r for r in rows if r['hasPosition'] == '*']
+    theme_counts = {}
+    for r in held:
+        theme = classify_theme(r['stockName']) or '其他'
+        theme_counts[theme] = theme_counts.get(theme, 0) + 1
+    total = len(held)
+    theme_pcts = {t: round(c / total * 100) for t, c in theme_counts.items()} if total > 0 else {}
+    return theme_pcts, total
+
+def generate_scatter_svg(rows):
+    points = []
+    for r in rows:
+        p = r['_parsed']
+        if p.get('roe') is None or p.get('pe10pos') is None:
+            continue
+        theme = classify_theme(r['stockName']) or '其他'
+        points.append({
+            'x': min(p['roe'], 30),
+            'y': p['pe10pos'],
+            'name': r['stockName'],
+            'code': r['stockCode'],
+            'theme': theme,
+            'held': r['hasPosition'] == '*',
+            'score': r['score'],
+        })
+
+    w, h = 640, 400
+    pad_l, pad_r, pad_t, pad_b = 50, 20, 20, 40
+    chart_w = w - pad_l - pad_r
+    chart_h = h - pad_t - pad_b
+
+    def scale_x(v):
+        return pad_l + (v / 30.0) * chart_w
+
+    def scale_y(v):
+        return pad_t + (v / 100.0) * chart_h
+
+    theme_colors_map = {
+        '消费': '#e74c3c', '医药': '#27ae60', '互联网': '#8e44ad',
+        '金融': '#f39c12', '红利': '#c0392b', '家电': '#2980b9',
+        '基建': '#7f8c8d', '养老': '#16a085', '港股': '#3498db', '其他': '#95a5a6',
+    }
+
+    svg_parts = [f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:auto;font-family:sans-serif;">']
+    svg_parts.append(f'<rect x="{scale_x(10)}" y="{scale_y(0)}" width="{scale_x(30)-scale_x(10)}" height="{scale_y(30)-scale_y(0)}" fill="#27ae60" fill-opacity="0.06" />')
+    svg_parts.append(f'<text x="{scale_x(20)}" y="{scale_y(15)}" text-anchor="middle" font-size="10" fill="#27ae60" opacity="0.5">价值区</text>')
+
+    for v in [0, 20, 50, 80, 100]:
+        y = scale_y(v)
+        svg_parts.append(f'<line x1="{pad_l}" y1="{y}" x2="{w-pad_r}" y2="{y}" stroke="#eee" stroke-width="0.5"/>')
+        svg_parts.append(f'<text x="{pad_l-5}" y="{y+3}" text-anchor="end" font-size="9" fill="#888">{v}%</text>')
+    for v in [0, 5, 10, 15, 20, 25, 30]:
+        x = scale_x(v)
+        svg_parts.append(f'<line x1="{x}" y1="{pad_t}" x2="{x}" y2="{h-pad_b}" stroke="#eee" stroke-width="0.5"/>')
+        svg_parts.append(f'<text x="{x}" y="{h-pad_b+14}" text-anchor="middle" font-size="9" fill="#888">{v}%</text>')
+
+    svg_parts.append(f'<text x="{w/2}" y="{h-5}" text-anchor="middle" font-size="10" fill="#555">ROE</text>')
+    svg_parts.append(f'<text x="12" y="{h/2}" text-anchor="middle" font-size="10" fill="#555" transform="rotate(-90,12,{h/2})">PE百分位</text>')
+
+    for pt in points:
+        cx = scale_x(pt['x'])
+        cy = scale_y(pt['y'])
+        color = theme_colors_map.get(pt['theme'], '#95a5a6')
+        r = 5 if pt['held'] else 3
+        stroke = ' stroke="#333" stroke-width="1.5"' if pt['held'] else ''
+        opacity = '0.8' if pt['held'] else '0.55'
+        svg_parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{color}" opacity="{opacity}"{stroke}><title>{pt["name"]} (ROE:{pt["x"]:.1f}%, PE位:{pt["y"]:.1f}%, 评分:{pt["score"]})</title></circle>')
+
+    legend_x = pad_l + 5
+    legend_y = pad_t + 5
+    svg_parts.append(f'<rect x="{legend_x}" y="{legend_y}" width="80" height="{len(theme_colors_map)*13+4}" fill="white" fill-opacity="0.85" rx="3"/>')
+    for i, (t, c) in enumerate(theme_colors_map.items()):
+        svg_parts.append(f'<circle cx="{legend_x+8}" cy="{legend_y+10+i*13}" r="3" fill="{c}"/>')
+        svg_parts.append(f'<text x="{legend_x+15}" y="{legend_y+13+i*13}" font-size="8" fill="#555">{t}</text>')
+
+    svg_parts.append('</svg>')
+    return '\n'.join(svg_parts)
+
 def color_class_ftld(val):
     if val is None:
         return ''
@@ -264,6 +377,10 @@ def generate_html(csv_path, output_path, qdii_csv_path=None):
                 'roe': row[13],
                 'div': row[14],
                 'funds': row[15] if len(row) > 15 else '',
+                'pe5pos': row[16] if len(row) > 16 else '',
+                'pb5pos': row[17] if len(row) > 17 else '',
+                'pe_pb_divergence': row[18] if len(row) > 18 else '',
+                'val_adj_div': row[19] if len(row) > 19 else '',
             }
             d['_parsed'] = {
                 'current_drawdown': parse_percent(d['current_drawdown']),
@@ -273,14 +390,37 @@ def generate_html(csv_path, output_path, qdii_csv_path=None):
                 'pb10pos': parse_percent(d['pb10pos']),
                 'roe': parse_percent(d['roe']),
                 'div': parse_percent(d['div']),
+                'pe5pos': parse_percent(d['pe5pos']),
+                'pb5pos': parse_percent(d['pb5pos']),
+                'pe_pb_divergence': parse_percent(d['pe_pb_divergence']),
+                'val_adj_div': parse_percent(d['val_adj_div']),
             }
             d['score'] = score_index(d)
             rows.append(d)
 
     date_str = header[0] if header else ''
+
+    prev_csv = find_second_latest_csv()
+    prev_data, prev_date = load_previous_data(prev_csv)
+    for r in rows:
+        code = r['stockCode']
+        if code in prev_data:
+            old = prev_data[code]
+            r['_delta'] = {
+                'score': r['score'] - old['score'] if old['score'] is not None else None,
+                'pe10pos': (r['_parsed']['pe10pos'] - old['pe10pos']) if (r['_parsed']['pe10pos'] is not None and old['pe10pos'] is not None) else None,
+                'pb10pos': (r['_parsed']['pb10pos'] - old['pb10pos']) if (r['_parsed']['pb10pos'] is not None and old['pb10pos'] is not None) else None,
+            }
+        else:
+            r['_delta'] = {'score': None, 'pe10pos': None, 'pb10pos': None}
+
+    tz_cst = timezone(timedelta(hours=8))
+    gen_time = datetime.now(tz_cst).strftime('%Y-%m-%d %H:%M CST')
+
     rows_json_parts = []
     for r in rows:
         p = r['_parsed']
+        delta = r['_delta']
         fund_count = len([f.strip() for f in r['funds'].split(',') if f.strip()]) if r['funds'].strip() else 0
         first_fund = ''
         if r['funds'].strip():
@@ -298,7 +438,14 @@ def generate_html(csv_path, output_path, qdii_csv_path=None):
             f'{json_num(p["pb10pos"])},'
             f'{json_num(p["roe"])},'
             f'{json_num(p["div"])},'
-            f'{fund_count},"{esc(first_fund)}","{esc(r["funds"])}"]'
+            f'{fund_count},"{esc(first_fund)}","{esc(r["funds"])}",'
+            f'{json_num(delta["score"])},'
+            f'{json_num(delta["pe10pos"])},'
+            f'{json_num(delta["pb10pos"])},'
+            f'{json_num(p["pe5pos"])},'
+            f'{json_num(p["pb5pos"])},'
+            f'{json_num(p["pe_pb_divergence"])},'
+            f'{json_num(p["val_adj_div"])}]'
         )
 
     rows_json = ',\n'.join(rows_json_parts)
@@ -336,6 +483,51 @@ def generate_html(csv_path, output_path, qdii_csv_path=None):
                 f'{json_num(p["to_lowest"])},{json_num(p["to_highest"])},{r["score"]}]'
             )
         qdii_json = ',\n'.join(qdii_json_parts)
+
+    position_pcts, position_total = compute_position_concentration(rows)
+    scatter_svg = generate_scatter_svg(rows)
+
+    all_theme_colors = {
+        '消费': '#e74c3c', '医药': '#27ae60', '互联网': '#8e44ad',
+        '金融': '#f39c12', '红利': '#c0392b', '家电': '#2980b9',
+        '基建': '#7f8c8d', '养老': '#16a085', '港股': '#3498db', '其他': '#95a5a6',
+    }
+
+    position_bar_html = ''
+    if position_pcts:
+        bar_parts = []
+        legend_parts = []
+        for theme, pct in sorted(position_pcts.items(), key=lambda x: -x[1]):
+            color = all_theme_colors.get(theme, '#95a5a6')
+            bar_parts.append(f'<div style="width:{pct}%;background:{color};display:flex;align-items:center;justify-content:center;color:white;font-size:10px;font-weight:600;min-width:20px;">{theme}{pct}%</div>')
+            legend_parts.append(f'{theme} {pct}%')
+        position_bar_html = '<div style="display:flex;height:28px;border-radius:4px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.08);">' + ''.join(bar_parts) + '</div>'
+        position_bar_html += f'<div style="font-size:11px;color:#666;margin-top:4px;">共{position_total}只持仓 | {" | ".join(legend_parts)}</div>'
+
+    rebalance_html = ''
+    if position_pcts and 'M' in portfolios:
+        target_themes = {}
+        for item in portfolios['M']['items']:
+            target_themes[item['theme']] = target_themes.get(item['theme'], 0) + item['w']
+        all_rb_themes = sorted(set(list(position_pcts.keys()) + list(target_themes.keys())))
+        rb_rows = []
+        for t in all_rb_themes:
+            curr = position_pcts.get(t, 0)
+            tgt = target_themes.get(t, 0)
+            diff = curr - tgt
+            color = all_theme_colors.get(t, '#95a5a6')
+            arrow = ''
+            if diff > 5:
+                arrow = f'<span style="color:#c0392b;font-weight:700;">超配+{diff}%</span>'
+            elif diff < -5:
+                arrow = f'<span style="color:#27ae60;font-weight:700;">欠配{diff}%</span>'
+            else:
+                arrow = '<span style="color:#888;">均衡</span>'
+            rb_rows.append(f'<tr><td><span style="display:inline-block;width:10px;height:10px;background:{color};border-radius:2px;margin-right:4px;"></span>{t}</td><td style="text-align:center;">{curr}%</td><td style="text-align:center;">{tgt}%</td><td style="text-align:center;">{arrow}</td></tr>')
+        rebalance_html = '<table class="rec-table" style="margin-top:10px;"><thead><tr><th>主题</th><th>当前持仓</th><th>推荐配比</th><th>调整建议</th></tr></thead><tbody>' + ''.join(rb_rows) + '</tbody></table>'
+
+    prev_date_display = prev_date if prev_date else ''
+
     html_content = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -390,6 +582,19 @@ tr.has-position {{ font-weight: 600; }}
 .style-宽基 {{ background: #2c3e50; color: white; }}
 .style-default {{ background: #95a5a6; color: white; }}
 #nodata {{ display: none; padding: 40px; text-align: center; color: #999; }}
+.buy-badge {{ background: #27ae60; color: white; font-size: 9px; padding: 1px 4px; border-radius: 3px; margin-left: 2px; vertical-align: middle; }}
+.delta {{ font-size: 9px; margin-left: 2px; }}
+.delta-up {{ color: #27ae60; }}
+.delta-down {{ color: #c0392b; }}
+.divergence-flag {{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 3px; vertical-align: middle; }}
+.divergence-high {{ background: #e74c3c; }}
+.divergence-low {{ background: #f39c12; }}
+.analysis-section {{ background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.12); margin-bottom: 12px; padding: 16px; }}
+.analysis-section h3 {{ font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 10px; }}
+.scatter-wrap {{ text-align: center; margin: 8px 0; }}
+.opp-badge {{ font-size: 10px; color: #888; }}
+.opp-reached {{ color: #27ae60; font-weight: 600; font-size: 10px; }}
+.extra-col {{ font-size: 11px; }}
 .rec-section {{ background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.12); margin-bottom: 12px; overflow: hidden; }}
 .rec-header {{ display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: linear-gradient(135deg, #1a5276, #2c3e50); color: white; cursor: pointer; user-select: none; }}
 .rec-header h2 {{ font-size: 15px; font-weight: 600; margin: 0; }}
@@ -459,7 +664,7 @@ tr.has-position {{ font-weight: 600; }}
 <body>
 <div class="container">
 <h1>指数回撤与估值分析</h1>
-<p class="subtitle">数据日期: {date_str} | 共 {len(rows)} 只指数</p>
+<p class="subtitle">数据日期: {date_str} | 生成时间: {gen_time} | 共 {len(rows)} 只指数{f' | 对比: {prev_date_display}' if prev_date_display else ''}</p>
 
 <div class="legend">
 <span style="font-weight:600;">颜色说明:</span>
@@ -515,6 +720,8 @@ tr.has-position {{ font-weight: 600; }}
 </select>
 </div>
 <button onclick="resetFilters()">重置</button>
+<button onclick="exportTop()" style="background:#2c3e50;border-color:#2c3e50;">导出Top20</button>
+<button onclick="toggleExtraCols()" id="extraColsBtn" style="background:#4a90d9;border-color:#4a90d9;">5年/背离</button>
 </div>
 
 <div class="stats" id="stats"></div>
@@ -548,6 +755,19 @@ tr.has-position {{ font-weight: 600; }}
 </div>
 </div>
 
+<div class="analysis-section">
+<h3>持仓主题集中度分析</h3>
+{position_bar_html if position_bar_html else '<div style="color:#999;font-size:12px;">暂无持仓数据</div>'}
+{rebalance_html}
+</div>
+
+<div class="analysis-section">
+<h3>ROE-估值象限图 <span style="font-size:11px;color:#888;font-weight:400;">(右下方=高ROE+低估值=价值区 | 实心大圆=持仓)</span></h3>
+<div class="scatter-wrap">
+{scatter_svg}
+</div>
+</div>
+
 <div class="table-wrap">
 <table id="mainTable">
 <thead>
@@ -568,6 +788,10 @@ tr.has-position {{ font-weight: 600; }}
 <th onclick="sortBy(13)" title="净资产收益率(越高越好)">ROE <span class="sort-arrow" id="arrow13"></span></th>
 <th onclick="sortBy(14)" title="股息率(越高越好)">股息率 <span class="sort-arrow" id="arrow14"></span></th>
 <th onclick="sortBy(23)" title="可跟踪基金数量">基金 <span class="sort-arrow" id="arrow23"></span></th>
+<th onclick="sortBy(33)" title="距PE20%分位还需下跌多少" class="extra-col">距机会 <span class="sort-arrow" id="arrow33"></span></th>
+<th onclick="sortBy(29)" title="PE 5年百分位" class="extra-col">PE5位 <span class="sort-arrow" id="arrow29"></span></th>
+<th onclick="sortBy(30)" title="PB 5年百分位" class="extra-col">PB5位 <span class="sort-arrow" id="arrow30"></span></th>
+<th onclick="sortBy(31)" title="PE位-PB位 背离度" class="extra-col">背离 <span class="sort-arrow" id="arrow31"></span></th>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
@@ -643,13 +867,60 @@ const DATA=[
 // Column indices: 0=sector,1=code,2=pubDate,3=name,4=style,5=position,
 // 6=currDD,7=largestDD,8=ftld,9=pe,10=pePos,11=pb,12=pbPos,13=roe,14=div,
 // 15=score,16=ftld_n,17=currDD_n,18=largestDD_n,19=pePos_n,20=pbPos_n,
-// 21=roe_n,22=div_n,23=fundCount,24=firstFund,25=allFunds
+// 21=roe_n,22=div_n,23=fundCount,24=firstFund,25=allFunds,
+// 26=scoreDelta,27=pePosChg,28=pbPosChg,29=pe5pos_n,30=pb5pos_n,31=divergence_n,32=valAdjDiv_n
 
 let sortCol = 15;
 let sortAsc = false;
 let filtered = [...Array(DATA.length).keys()];
+let showExtraCols = true;
 
 function esc(s) {{ return s; }}
+
+function hasBuySignal(r) {{
+  return r[19]!==null && r[19]<30 && r[20]!==null && r[20]<30 && r[16]!==null && r[16]>-20;
+}}
+
+function deltaHtml(v, suffix) {{
+  if(v===null || v===0) return '';
+  if(v>0) return '<span class="delta delta-up">+'+v.toFixed(suffix?1:0)+(suffix||'')+'</span>';
+  return '<span class="delta delta-down">'+v.toFixed(suffix?1:0)+(suffix||'')+'</span>';
+}}
+
+function distToOpp(r) {{
+  if(r[5]==='*') return '-';
+  var pePos = r[19];
+  if(pePos===null) return '-';
+  if(pePos<=20) return '<span class="opp-reached">已达</span>';
+  return '<span class="opp-badge">'+(pePos-20).toFixed(0)+'%↓</span>';
+}}
+
+function divergenceFlag(v) {{
+  if(v===null) return '';
+  var abs = Math.abs(v);
+  if(abs>30) return '<span class="divergence-flag divergence-high" title="PE-PB背离'+v.toFixed(1)+'%"></span>';
+  if(abs>15) return '<span class="divergence-flag divergence-low" title="PE-PB背离'+v.toFixed(1)+'%"></span>';
+  return '';
+}}
+
+function toggleExtraCols() {{
+  showExtraCols = !showExtraCols;
+  var cols = document.querySelectorAll('.extra-col');
+  cols.forEach(function(el) {{ el.style.display = showExtraCols ? '' : 'none'; }});
+  document.getElementById('extraColsBtn').style.background = showExtraCols ? '#4a90d9' : '#7f8c8d';
+  document.getElementById('extraColsBtn').style.borderColor = showExtraCols ? '#4a90d9' : '#7f8c8d';
+}}
+
+function exportTop() {{
+  var n = Math.min(20, filtered.length);
+  var sorted = [...filtered].sort(function(a,b){{ return DATA[b][15]-DATA[a][15]; }});
+  var text = '排名\\t代码\\t名称\\t评分\\tPE位\\tPB位\\tROE\\t股息率\\t距最低\\t推荐基金\\n';
+  for(var i=0; i<n; i++) {{
+    var r = DATA[sorted[i]];
+    text += (i+1)+'\\t'+r[1]+'\\t'+r[3]+'\\t'+r[15]+'\\t'+r[10]+'\\t'+r[12]+'\\t'+r[13]+'\\t'+r[14]+'\\t'+r[8]+'\\t'+r[24]+'\\n';
+  }}
+  navigator.clipboard.writeText(text).then(function(){{ alert('已复制Top'+n+'到剪贴板'); }});
+}}
 
 function colorFtld(v) {{
   if(v===null) return '';
@@ -727,6 +998,11 @@ function getVal(idx, col) {{
   if(col===21||col===13) return r[21];
   if(col===22||col===14) return r[22];
   if(col===23) return r[23];
+  if(col===26) return r[26];
+  if(col===29) return r[29];
+  if(col===30) return r[30];
+  if(col===31) return r[31]!==null ? Math.abs(r[31]) : -1;
+  if(col===33) return r[19]!==null ? (r[19]<=20 ? -1 : r[19]-20) : 99999;
   if(col===9) return parseFloat(r[9])||99999;
   if(col===11) return parseFloat(r[11])||99999;
   return r[col];
@@ -775,13 +1051,14 @@ function renderTable() {{
     return sortAsc ? va-vb : vb-va;
   }});
 
-  for(let i=0; i<=25; i++) {{
+  for(let i=0; i<=33; i++) {{
     const el = document.getElementById('arrow'+i);
     if(el) el.textContent = sortCol===i ? (sortAsc ? '▲' : '▼') : '';
   }}
 
   const tbody = document.getElementById('tbody');
   const nodata = document.getElementById('nodata');
+  const ecDisp = showExtraCols ? '' : 'display:none;';
   if(filtered.length===0) {{
     tbody.innerHTML='';
     nodata.style.display='block';
@@ -791,6 +1068,11 @@ function renderTable() {{
     for(const idx of filtered) {{
       const r = DATA[idx];
       const hp = r[5]==='*';
+      const buyBadge = hasBuySignal(r) ? ' <span class="buy-badge">值</span>' : '';
+      const scoreDelta = deltaHtml(r[26], '');
+      const peDelta = deltaHtml(r[27], '%');
+      const pbDelta = deltaHtml(r[28], '%');
+      const divFlag = divergenceFlag(r[31]);
       parts.push(
         '<tr'+(hp?' class="has-position"':'')+'>' +
         '<td>'+sectorTag(r[0])+'</td>' +
@@ -798,17 +1080,21 @@ function renderTable() {{
         '<td>'+r[3]+'</td>' +
         '<td>'+styleTag(r[4])+'</td>' +
         '<td>'+(hp?'<span class="position-star">★</span>':'')+'</td>' +
-        '<td class="score-cell '+colorScore(r[15])+'">'+r[15]+'</td>' +
+        '<td class="score-cell '+colorScore(r[15])+'">'+r[15]+buyBadge+scoreDelta+'</td>' +
         '<td class="'+valClass(r[6])+'">'+r[6]+'</td>' +
         '<td class="neg-val">'+r[7]+'</td>' +
         '<td class="'+colorFtld(r[16])+'">'+r[8]+'</td>' +
         '<td>'+fmtNum(r[9])+'</td>' +
-        '<td class="'+colorPct(r[19])+'">'+r[10]+'</td>' +
+        '<td class="'+colorPct(r[19])+'">'+r[10]+peDelta+'</td>' +
         '<td>'+fmtNum(r[11])+'</td>' +
-        '<td class="'+colorPct(r[20])+'">'+r[12]+'</td>' +
+        '<td class="'+colorPct(r[20])+'">'+r[12]+pbDelta+'</td>' +
         '<td class="'+colorRoe(r[21])+'">'+r[13]+'</td>' +
         '<td class="'+colorDiv(r[22])+'">'+r[14]+'</td>' +
         '<td class="fund-cell" title="'+r[25]+'"><span class="fund-count">'+r[23]+'只</span> '+r[24]+'</td>' +
+        '<td class="extra-col" style="'+ecDisp+'">'+distToOpp(r)+'</td>' +
+        '<td class="extra-col '+colorPct(r[29])+'" style="'+ecDisp+'">'+(r[29]!==null?r[29].toFixed(1)+'%':'-')+'</td>' +
+        '<td class="extra-col '+colorPct(r[30])+'" style="'+ecDisp+'">'+(r[30]!==null?r[30].toFixed(1)+'%':'-')+'</td>' +
+        '<td class="extra-col" style="'+ecDisp+'">'+(r[31]!==null?r[31].toFixed(1)+'%':'-')+divFlag+'</td>' +
         '</tr>'
       );
     }}
