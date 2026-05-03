@@ -1730,7 +1730,6 @@ if __name__ == '__main__':
     if not csv_path or not os.path.exists(csv_path):
         print("CSV file not found. Usage: python generate_html_report.py [csv_file]")
         sys.exit(1)
-    base = os.path.splitext(csv_path)[0]
-    output_path = base + '.html'
+    output_path = os.path.join(os.path.dirname(csv_path), 'all_index_drawdown_current_and_history.html')
     qdii_csv_path = find_latest_qdii_csv()
     generate_html(csv_path, output_path, qdii_csv_path)

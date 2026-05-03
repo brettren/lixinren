@@ -12,4 +12,4 @@ __pycache__/
 *.xlsx
 *.xltx
 *.pdf
-config.py
+.env

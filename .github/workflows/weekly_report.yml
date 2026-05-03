@@ -1,0 +1,46 @@
+name: Weekly Index Report
+
+on:
+  schedule:
+    - cron: '0 15 * * 5'  # Friday 23:00 CST (UTC+8) = 15:00 UTC
+  workflow_dispatch:
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests pandas openpyxl xlsxwriter
+
+      - name: Update config with today's date and token
+        env:
+          LIXINGER_TOKEN: ${{ secrets.LIXINGER_TOKEN }}
+        run: |
+          TODAY=$(TZ='Asia/Shanghai' date +%Y-%m-%d)
+          sed -i "s/^today = .*/today = \"$TODAY\"/" config.py
+          sed -i "s/^token = .*/token = \"$LIXINGER_TOKEN\"/" config.py
+
+      - name: Generate drawdown CSV
+        working-directory: allindex
+        run: python all_index_drawdown_current_and_history.py
+
+      - name: Generate HTML report
+        working-directory: allindex
+        run: python generate_html_report.py
+
+      - name: Commit and push results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add allindex/all_index_drawdown_current_and_history.csv
+          git add allindex/all_index_drawdown_current_and_history.html
+          TODAY=$(TZ='Asia/Shanghai' date +%Y-%m-%d)
+          git diff --cached --quiet || git commit -m "Weekly report: $TODAY"
+          git push

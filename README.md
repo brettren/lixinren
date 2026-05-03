@@ -10,7 +10,7 @@ A collection of Python scripts for fetching and analyzing Chinese stock index va
 - **Interactive HTML Report** (`allindex/generate_html_report.py`) — Generates a self-contained HTML page from drawdown CSV data with sortable columns, color-coded valuation metrics, composite scoring (PE/PB percentile + ROE + dividend + drawdown risk), and filters by market/style/position/score.
 - **Historical Index Data** (`index_history.py`) — Records weekly index fundamentals (PE, PB, PS, ROE, dividend, book value, earnings) to CSV and generates trend charts.
 - **Annual Return Summary** — Computes annual book value growth, earnings growth, and ROE for each tracked index.
-- **QDII Fund Analysis** (`qdIIFunds/qdII_funds_info.py`) — Fetches all active QDII funds, calculates drawdown metrics, and exports to CSV/Excel.
+- **QDII Fund Analysis** (`qdIIFunds/qdII_funds_info.py`, `qdIIFunds/qdII_funds_drawdown.py`) — Fetches all active QDII funds, calculates drawdown metrics, and exports to CSV/Excel.
 - **Highest Index Tracking** (`get_highest_index.py`) — Finds historical highest net values for funds via the dividend reinvestment API.
 
 ## Project Structure
@@ -32,7 +32,8 @@ allindex/                # All-index analysis scripts
   all_index_drawdown.py
   generate_html_report.py  # Interactive HTML report generator
 qdIIFunds/               # QDII fund analysis
-  qdII_funds_info.py
+  qdII_funds_info.py       # Fund info fetching & filtering
+  qdII_funds_drawdown.py   # Drawdown calculation & CSV export
 index/                   # Historical CSV data per index
 ```
 
@@ -74,7 +75,7 @@ python lixinren.py [date]          # e.g. python lixinren.py 2026-04-24
 python index_drawdown.py
 python get_highest_index.py
 cd allindex && python all_index_drawdown_current_and_history.py
-cd qdIIFunds && python qdII_funds_info.py
+cd qdIIFunds && python qdII_funds_drawdown.py
 ```
 
 Generate the interactive HTML report:
@@ -83,3 +84,12 @@ Generate the interactive HTML report:
 cd allindex && python generate_html_report.py                          # auto-finds latest CSV
 cd allindex && python generate_html_report.py all_index_drawdown_current_and_history_2026-04-24.csv  # specific file
 ```
+
+## Automated Weekly Report
+
+A GitHub Actions workflow runs every Friday at 23:00 CST to automatically generate the latest index drawdown CSV and HTML report.
+
+- **Workflow:** `.github/workflows/weekly_report.yml`
+- **Schedule:** Every Friday 23:00 (Asia/Shanghai)
+- **Trigger:** Also supports manual trigger via `workflow_dispatch`
+- **Requires:** `LIXINGER_TOKEN` secret configured in the repository settings

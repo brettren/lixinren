@@ -59,7 +59,7 @@ summary = list()
 summary.append([endDate, "stockCode", "publishDate", "stockName", "style", "hasPosition", "Current drawdown",
                 "Largest drawdown", "fall_to_lowest_drawdown", "pe", "pe10pos", "pb", "pb10pos", "roe", "div", "funds",
                 "pe5pos", "pb5pos", "pe_pb_divergence", "val_adj_div"])
-all_index_drawdown_current_and_history_csv_file = f"all_index_drawdown_current_and_history_{endDate}.csv"
+all_index_drawdown_current_and_history_csv_file = f"all_index_drawdown_current_and_history.csv"
 
 
 def get_index_codes(country):
