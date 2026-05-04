@@ -17,7 +17,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pandas openpyxl xlsxwriter
+        run: pip install requests pandas openpyxl xlsxwriter akshare
 
       - name: Update config with today's date and token
         env:
@@ -31,6 +31,10 @@ jobs:
         working-directory: allindex
         run: python all_index_drawdown_current_and_history.py
 
+      - name: Generate QDII funds drawdown
+        working-directory: qdIIFunds
+        run: python qdII_funds_drawdown.py
+
       - name: Generate HTML report
         working-directory: allindex
         run: python generate_html_report.py
@@ -41,6 +45,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add allindex/all_index_drawdown_current_and_history.csv
           git add allindex/all_index_drawdown_current_and_history.html
+          git add qdIIFunds/qdII_funds_drawdown.csv
           TODAY=$(TZ='Asia/Shanghai' date +%Y-%m-%d)
           git diff --cached --quiet || git commit -m "Weekly report: $TODAY"
           git push

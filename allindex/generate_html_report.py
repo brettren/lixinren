@@ -23,7 +23,7 @@ def find_second_latest_csv():
     return files[-2]
 
 def find_latest_qdii_csv():
-    pattern = os.path.join(os.path.dirname(__file__), "..", "qdIIFunds", "qdII_funds_drawdown_2*.csv")
+    pattern = os.path.join(os.path.dirname(__file__), "..", "qdIIFunds", "qdII_funds_drawdown.csv")
     files = glob.glob(pattern)
     if not files:
         return None
@@ -64,7 +64,9 @@ def parse_percent(s):
         return None
     s = s.strip().replace('%', '')
     try:
-        return float(s)
+        v = float(s)
+        import math
+        return None if math.isnan(v) else v
     except ValueError:
         return None
 
@@ -706,6 +708,10 @@ tr.has-position {{ font-weight: 600; }}
 <div class="legend-item"><div class="legend-color bg-red"></div> 警告</div>
 <span style="margin-left:12px;font-weight:600;">评分:</span>
 <span>距最低回撤(30) + PE百分位(25) + PB百分位(15) + ROE(20) + 股息率(15) = 满分105</span>
+<span style="margin-left:12px;font-weight:600;"><span class="buy-badge">值</span></span>
+<span>PE位&lt;30% 且 PB位&lt;30% 且 距最低&gt;-20%，三重低估信号</span>
+<span style="margin-left:12px;font-weight:600;">背离:</span>
+<span>PE位与PB位之差，<span class="divergence-flag divergence-high"></span>&gt;30%严重背离 <span class="divergence-flag divergence-low"></span>&gt;15%轻度背离，提示盈利与资产估值不一致</span>
 </div>
 
 <div class="controls">
@@ -1722,7 +1728,10 @@ def esc(s):
     return s.replace('\\', '\\\\').replace('"', '\\"').replace("'", "\\'").replace('\n', ' ').replace('\r', '')
 
 def json_num(v):
-    return 'null' if v is None else str(v)
+    import math
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return 'null'
+    return str(v)
 
 
 if __name__ == '__main__':
