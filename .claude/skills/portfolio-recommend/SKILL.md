@@ -21,7 +21,7 @@ Run the analysis script to extract the top candidates:
 python3 -c "
 import csv, glob, os
 
-pattern = os.path.join('allindex', 'all_index_drawdown_current_and_history_2*.csv')
+pattern = os.path.join('allindex', 'all_index_drawdown_current_and_history.csv')
 csv_path = max(glob.glob(pattern))
 print(f'Data file: {csv_path}')
 

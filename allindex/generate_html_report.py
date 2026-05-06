@@ -9,14 +9,14 @@ import glob
 from datetime import datetime, timezone, timedelta
 
 def find_latest_csv():
-    pattern = os.path.join(os.path.dirname(__file__), "all_index_drawdown_current_and_history_2*.csv")
+    pattern = os.path.join(os.path.dirname(__file__), "all_index_drawdown_current_and_history.csv")
     files = glob.glob(pattern)
     if not files:
         return None
     return max(files)
 
 def find_second_latest_csv():
-    pattern = os.path.join(os.path.dirname(__file__), "all_index_drawdown_current_and_history_2*.csv")
+    pattern = os.path.join(os.path.dirname(__file__), "all_index_drawdown_current_and_history.csv")
     files = sorted(glob.glob(pattern))
     if len(files) < 2:
         return None
