@@ -30,10 +30,14 @@ jobs:
       - name: Generate drawdown CSV
         working-directory: allindex
         run: python all_index_drawdown_current_and_history.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
 
       - name: Generate QDII funds drawdown
         working-directory: qdIIFunds
         run: python qdII_funds_drawdown.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
 
       - name: Generate HTML report
         working-directory: allindex
