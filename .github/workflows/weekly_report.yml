@@ -5,6 +5,9 @@ on:
     - cron: '0 15 * * 5'  # Friday 23:00 CST (UTC+8) = 15:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   generate-report:
     runs-on: ubuntu-latest
