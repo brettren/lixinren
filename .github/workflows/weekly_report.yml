@@ -22,12 +22,20 @@ jobs:
       - name: Install dependencies
         run: pip install requests pandas openpyxl xlsxwriter akshare
 
-      - name: Update config with today's date and token
+      - name: Update config with latest trading day and token
         env:
           LIXINGER_TOKEN: ${{ secrets.LIXINGER_TOKEN }}
         run: |
-          TODAY=$(TZ='Asia/Shanghai' date +%Y-%m-%d)
-          sed -i "s/^today = .*/today = \"$TODAY\"/" config.py
+          TRADE_DATE=$(python -c "
+          import akshare as ak
+          import datetime
+          today = datetime.date.today()
+          df = ak.tool_trade_date_hist_sina()
+          dates = sorted([d.date() for d in df['trade_date'] if d.date() <= today])
+          print(dates[-1])
+          ")
+          echo "Latest trading day: $TRADE_DATE"
+          sed -i "s/^today = .*/today = \"$TRADE_DATE\"/" config.py
           sed -i "s/^token = .*/token = \"$LIXINGER_TOKEN\"/" config.py
 
       - name: Generate drawdown CSV
@@ -53,6 +61,13 @@ jobs:
           git add allindex/all_index_drawdown_current_and_history.csv
           git add allindex/all_index_drawdown_current_and_history.html
           git add qdIIFunds/qdII_funds_drawdown.csv
-          TODAY=$(TZ='Asia/Shanghai' date +%Y-%m-%d)
-          git diff --cached --quiet || git commit -m "Weekly report: $TODAY"
+          TRADE_DATE=$(python -c "
+          import akshare as ak
+          import datetime
+          today = datetime.date.today()
+          df = ak.tool_trade_date_hist_sina()
+          dates = sorted([d.date() for d in df['trade_date'] if d.date() <= today])
+          print(dates[-1])
+          ")
+          git diff --cached --quiet || git commit -m "Weekly report: $TRADE_DATE"
           git push
