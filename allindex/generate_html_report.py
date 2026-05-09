@@ -29,6 +29,39 @@ def find_latest_qdii_csv():
         return None
     return max(files)
 
+
+def find_sw_industry_csv():
+    path = os.path.join(os.path.dirname(__file__), "sw_industry_valuation.csv")
+    if os.path.exists(path):
+        return path
+    return None
+
+
+def load_sw_industry_data(csv_path):
+    rows = []
+    date_str = ''
+    with open(csv_path, 'r', encoding='utf_8_sig') as f:
+        reader = csv.reader(f)
+        header = next(reader)
+        date_str = header[0] if header else ''
+        for row in reader:
+            if len(row) < 11:
+                continue
+            rows.append({
+                'code': row[0],
+                'name': row[1],
+                'count': int(row[2]),
+                'pe_static': float(row[3]),
+                'pe_ttm': float(row[4]),
+                'pb': float(row[5]),
+                'div_yield': float(row[6]),
+                'pe_pct': float(row[7]),
+                'pb_pct': float(row[8]),
+                'div_pct': float(row[9]),
+                'score': float(row[10]),
+            })
+    return rows, date_str
+
 def load_qdii_data(csv_path):
     rows = []
     date_str = ''
@@ -384,7 +417,7 @@ def color_class_score(val):
         return 'bg-yellow'
     return 'bg-red'
 
-def generate_html(csv_path, output_path, qdii_csv_path=None):
+def generate_html(csv_path, output_path, qdii_csv_path=None, sw_csv_path=None):
     rows = []
     with open(csv_path, 'r', encoding='utf_8_sig') as f:
         reader = csv.reader(f)
@@ -515,6 +548,20 @@ def generate_html(csv_path, output_path, qdii_csv_path=None):
                 f'{json_num(p["to_lowest"])},{json_num(p["to_highest"])},{r["score"]}]'
             )
         qdii_json = ',\n'.join(qdii_json_parts)
+
+    sw_rows = []
+    sw_date_str = ''
+    sw_json = '[]'
+    if sw_csv_path and os.path.exists(sw_csv_path):
+        sw_rows, sw_date_str = load_sw_industry_data(sw_csv_path)
+        sw_json_parts = []
+        for r in sw_rows:
+            sw_json_parts.append(
+                f'["{esc(r["code"])}","{esc(r["name"])}",{r["count"]},'
+                f'{r["pe_static"]},{r["pe_ttm"]},{r["pb"]},{r["div_yield"]},'
+                f'{r["pe_pct"]},{r["pb_pct"]},{r["div_pct"]},{r["score"]}]'
+            )
+        sw_json = ',\n'.join(sw_json_parts)
 
     position_pcts, position_total = compute_position_concentration(rows)
     scatter_pe_svg, scatter_pb_svg = generate_scatter_svg(rows)
@@ -692,6 +739,18 @@ tr.has-position {{ font-weight: 600; }}
   .rec-asset-row input {{ width: 120px; font-size: 12px; padding: 4px 8px; }}
   .amt-col {{ font-size: 10px; }}
 }}
+.main-tabs {{ display: flex; gap: 0; margin-bottom: 16px; border-radius: 8px; overflow: hidden; border: 2px solid #2c3e50; }}
+.main-tabs button {{ flex: 1; padding: 10px 16px; font-size: 14px; border: none; background: #f8f9fa; color: #2c3e50; cursor: pointer; font-weight: 600; transition: all .15s; }}
+.main-tabs button:not(:last-child) {{ border-right: 2px solid #2c3e50; }}
+.main-tabs button.active {{ background: #2c3e50; color: white; }}
+.main-tabs button:hover:not(.active) {{ background: #e8f0fe; }}
+.tab-content {{ display: none; }}
+.tab-content.active {{ display: block; }}
+#swTable {{ min-width: 900px; }}
+#qdiiTable {{ min-width: 900px; }}
+@media (max-width: 768px) {{
+  .main-tabs button {{ font-size: 12px; padding: 8px 10px; }}
+}}
 </style>
 </head>
 <body>
@@ -699,6 +758,13 @@ tr.has-position {{ font-weight: 600; }}
 <h1>指数回撤与估值分析</h1>
 <p class="subtitle">数据日期: {date_str} | 生成时间: {gen_time} | 共 {len(rows)} 只指数{f' | 对比: {prev_date_display}' if prev_date_display else ''}</p>
 
+<div class="main-tabs">
+<button class="active" onclick="switchTab('tab1')">指数回撤与估值 ({len(rows)})</button>
+<button onclick="switchTab('tab2')">QDII基金回撤 ({len(qdii_rows)})</button>
+<button onclick="switchTab('tab3')">申万行业估值 ({len(sw_rows)})</button>
+</div>
+
+<div id="tab1" class="tab-content active">
 <div class="legend">
 <span style="font-weight:600;">颜色说明:</span>
 <div class="legend-item"><div class="legend-color bg-green-strong"></div> 极好</div>
@@ -713,55 +779,6 @@ tr.has-position {{ font-weight: 600; }}
 <span style="margin-left:12px;font-weight:600;">背离:</span>
 <span>PE位与PB位之差，<span class="divergence-flag divergence-high"></span>&gt;30%严重背离 <span class="divergence-flag divergence-low"></span>&gt;15%轻度背离，提示盈利与资产估值不一致</span>
 </div>
-
-<div class="controls">
-<div class="filter-group">
-<label>搜索:</label>
-<input type="text" id="searchInput" placeholder="名称/代码/基金..." oninput="applyFilters()">
-</div>
-<div class="filter-group">
-<label>市场:</label>
-<select id="sectorFilter" onchange="applyFilters()">
-<option value="">全部</option>
-<option value="A股">A股</option>
-<option value="港股">港股</option>
-</select>
-</div>
-<div class="filter-group">
-<label>风格:</label>
-<select id="styleFilter" onchange="applyFilters()">
-<option value="">全部</option>
-<option value="价值">价值</option>
-<option value="成长">成长</option>
-<option value="周期">周期</option>
-<option value="宽基">宽基</option>
-</select>
-</div>
-<div class="filter-group">
-<label>持仓:</label>
-<select id="posFilter" onchange="applyFilters()">
-<option value="">全部</option>
-<option value="yes">有持仓</option>
-<option value="no">无持仓</option>
-</select>
-</div>
-<div class="filter-group">
-<label>评分≥:</label>
-<select id="scoreFilter" onchange="applyFilters()">
-<option value="0">全部</option>
-<option value="40">40+</option>
-<option value="50">50+</option>
-<option value="60">60+</option>
-<option value="70">70+</option>
-<option value="80">80+</option>
-</select>
-</div>
-<button onclick="resetFilters()">重置</button>
-<button onclick="exportTop()" style="background:#2c3e50;border-color:#2c3e50;">导出Top20</button>
-<button onclick="toggleExtraCols()" id="extraColsBtn" style="background:#4a90d9;border-color:#4a90d9;">5年/背离</button>
-</div>
-
-<div class="stats" id="stats"></div>
 
 <div class="rec-section">
 <div class="rec-header" onclick="toggleRec()">
@@ -813,6 +830,55 @@ tr.has-position {{ font-weight: 600; }}
 <div id="scatterTip"></div>
 </div>
 
+<div class="controls">
+<div class="filter-group">
+<label>搜索:</label>
+<input type="text" id="searchInput" placeholder="名称/代码/基金..." oninput="applyFilters()">
+</div>
+<div class="filter-group">
+<label>市场:</label>
+<select id="sectorFilter" onchange="applyFilters()">
+<option value="">全部</option>
+<option value="A股">A股</option>
+<option value="港股">港股</option>
+</select>
+</div>
+<div class="filter-group">
+<label>风格:</label>
+<select id="styleFilter" onchange="applyFilters()">
+<option value="">全部</option>
+<option value="价值">价值</option>
+<option value="成长">成长</option>
+<option value="周期">周期</option>
+<option value="宽基">宽基</option>
+</select>
+</div>
+<div class="filter-group">
+<label>持仓:</label>
+<select id="posFilter" onchange="applyFilters()">
+<option value="">全部</option>
+<option value="yes">有持仓</option>
+<option value="no">无持仓</option>
+</select>
+</div>
+<div class="filter-group">
+<label>评分≥:</label>
+<select id="scoreFilter" onchange="applyFilters()">
+<option value="0">全部</option>
+<option value="40">40+</option>
+<option value="50">50+</option>
+<option value="60">60+</option>
+<option value="70">70+</option>
+<option value="80">80+</option>
+</select>
+</div>
+<button onclick="resetFilters()">重置</button>
+<button onclick="exportTop()" style="background:#2c3e50;border-color:#2c3e50;">导出Top20</button>
+<button onclick="toggleExtraCols()" id="extraColsBtn" style="background:#4a90d9;border-color:#4a90d9;">5年/背离</button>
+</div>
+
+<div class="stats" id="stats"></div>
+
 <div class="table-wrap">
 <table id="mainTable">
 <thead>
@@ -844,12 +910,9 @@ tr.has-position {{ font-weight: 600; }}
 <div id="nodata">没有匹配的数据</div>
 </div>
 
-<div class="rec-section" style="margin-top:12px;">
-<div class="rec-header" onclick="toggleQdii()">
-<h2>QDII基金回撤分析 ({len(qdii_rows)}只, {qdii_date_str})</h2>
-<span class="rec-arrow" id="qdiiArrow">▼</span>
-</div>
-<div class="rec-body" id="qdiiBody">
+</div><!-- end tab1 -->
+
+<div id="tab2" class="tab-content">
 <div class="legend" style="margin-bottom:8px;">
 <span style="font-weight:600;">评分:</span>
 <span>距最低(40) + 当前回撤深度(30) + 最大回撤控制(15) + 距最高(15) = 满分100</span>
@@ -900,8 +963,53 @@ tr.has-position {{ font-weight: 600; }}
 </table>
 <div id="qdiiNodata" style="display:none;padding:40px;text-align:center;color:#999;">没有匹配的数据</div>
 </div>
+</div><!-- end tab2 -->
+
+<div id="tab3" class="tab-content">
+<div class="legend" style="margin-bottom:8px;">
+<span style="font-weight:600;">评分说明:</span>
+<span>PE百分位排名(35) + PB百分位排名(25) + 股息率排名(25) + PE/PB一致性(15) = 满分100</span>
+<span style="margin-left:12px;">百分位=在31个行业中的相对排名，越低越便宜</span>
 </div>
+<div class="controls">
+<div class="filter-group">
+<label>搜索:</label>
+<input type="text" id="swSearch" placeholder="行业名称..." oninput="swApplyFilter()">
 </div>
+<div class="filter-group">
+<label>评分≥:</label>
+<select id="swScoreFilter" onchange="swApplyFilter()">
+<option value="0">全部</option>
+<option value="40">40+</option>
+<option value="50">50+</option>
+<option value="60">60+</option>
+<option value="70">70+</option>
+<option value="80">80+</option>
+</select>
+</div>
+<button onclick="swReset()">重置</button>
+</div>
+<div class="stats" id="swStats"></div>
+<div class="table-wrap" style="max-height:calc(100vh - 220px);">
+<table id="swTable">
+<thead><tr>
+<th onclick="swSortBy(0)">行业代码 <span class="sort-arrow" id="sArrow0"></span></th>
+<th onclick="swSortBy(1)">行业名称 <span class="sort-arrow" id="sArrow1"></span></th>
+<th onclick="swSortBy(2)">成份个数 <span class="sort-arrow" id="sArrow2"></span></th>
+<th onclick="swSortBy(10)" title="估值评分(满分100)">评分 <span class="sort-arrow" id="sArrow10"></span></th>
+<th onclick="swSortBy(3)" title="静态市盈率">静态PE <span class="sort-arrow" id="sArrow3"></span></th>
+<th onclick="swSortBy(4)" title="TTM滚动市盈率">TTM PE <span class="sort-arrow" id="sArrow4"></span></th>
+<th onclick="swSortBy(5)" title="市净率">PB <span class="sort-arrow" id="sArrow5"></span></th>
+<th onclick="swSortBy(6)" title="静态股息率">股息率 <span class="sort-arrow" id="sArrow6"></span></th>
+<th onclick="swSortBy(7)" title="PE在31行业中的百分位排名(越低越便宜)">PE百分位 <span class="sort-arrow" id="sArrow7"></span></th>
+<th onclick="swSortBy(8)" title="PB在31行业中的百分位排名(越低越便宜)">PB百分位 <span class="sort-arrow" id="sArrow8"></span></th>
+<th onclick="swSortBy(9)" title="股息率在31行业中的百分位排名(越低越好)">股息率百分位 <span class="sort-arrow" id="sArrow9"></span></th>
+</tr></thead>
+<tbody id="swTbody"></tbody>
+</table>
+<div id="swNodata" style="display:none;padding:40px;text-align:center;color:#999;">没有匹配的数据</div>
+</div>
+</div><!-- end tab3 -->
 
 </div>
 
@@ -1299,17 +1407,6 @@ let qdiiSortCol = 11;
 let qdiiSortAsc = false;
 let qdiiFiltered = [...Array(QDII_DATA.length).keys()];
 
-function toggleQdii() {{
-  const body = document.getElementById('qdiiBody');
-  const arrow = document.getElementById('qdiiArrow');
-  const isOpen = body.classList.toggle('open');
-  arrow.classList.toggle('open', isOpen);
-  if(isOpen && !body.dataset.init) {{
-    body.dataset.init = '1';
-    qdiiRenderTable();
-  }}
-}}
-
 function qdiiSortBy(col) {{
   if(qdiiSortCol === col) qdiiSortAsc = !qdiiSortAsc;
   else {{ qdiiSortCol = col; qdiiSortAsc = (col<=2); }}
@@ -1422,6 +1519,142 @@ function qdiiRenderTable() {{
   document.getElementById('qdiiStats').textContent =
     '显示 '+qdiiFiltered.length+' / '+QDII_DATA.length+' 只QDII基金' +
     (qdiiFiltered.length>0 ? ' | 平均评分: '+(qdiiFiltered.reduce((s,i)=>s+QDII_DATA[i][11],0)/qdiiFiltered.length).toFixed(1) : '');
+}}
+
+function switchTab(tabId) {{
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.main-tabs button').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  var idx = {{'tab1':0,'tab2':1,'tab3':2}}[tabId];
+  document.querySelectorAll('.main-tabs button')[idx].classList.add('active');
+  if(tabId==='tab2' && !document.getElementById('tab2').dataset.init) {{
+    document.getElementById('tab2').dataset.init='1';
+    qdiiRenderTable();
+  }}
+  if(tabId==='tab3' && !document.getElementById('tab3').dataset.init) {{
+    document.getElementById('tab3').dataset.init='1';
+    swRenderTable();
+  }}
+}}
+
+const SW_DATA=[
+{sw_json}
+];
+// SW columns: 0=code,1=name,2=count,3=pe_static,4=pe_ttm,5=pb,6=div_yield,
+// 7=pe_pct,8=pb_pct,9=div_pct,10=score
+
+let swSortCol = 10;
+let swSortAsc = false;
+let swFiltered = [...Array(SW_DATA.length).keys()];
+
+function swSortBy(col) {{
+  if(swSortCol === col) swSortAsc = !swSortAsc;
+  else {{ swSortCol = col; swSortAsc = (col<=2); }}
+  swRenderTable();
+}}
+
+function swGetVal(idx, col) {{
+  return SW_DATA[idx][col];
+}}
+
+function swApplyFilter() {{
+  const search = document.getElementById('swSearch').value.toLowerCase();
+  const minScore = parseInt(document.getElementById('swScoreFilter').value);
+  swFiltered = [];
+  for(let i=0; i<SW_DATA.length; i++) {{
+    const r = SW_DATA[i];
+    if(r[10] < minScore) continue;
+    if(search && !r[1].toLowerCase().includes(search)) continue;
+    swFiltered.push(i);
+  }}
+  swRenderTable();
+}}
+
+function swReset() {{
+  document.getElementById('swSearch').value = '';
+  document.getElementById('swScoreFilter').value = '0';
+  swFiltered = [...Array(SW_DATA.length).keys()];
+  swRenderTable();
+}}
+
+function swColorPE(v) {{
+  if(v<15) return 'bg-green-strong';
+  if(v<20) return 'bg-green';
+  if(v<30) return 'bg-green-light';
+  if(v<50) return 'bg-yellow';
+  return 'bg-red';
+}}
+
+function swColorPB(v) {{
+  if(v<1.0) return 'bg-green-strong';
+  if(v<1.5) return 'bg-green';
+  if(v<2.5) return 'bg-green-light';
+  if(v<4.0) return 'bg-yellow';
+  return 'bg-red';
+}}
+
+function swColorDiv(v) {{
+  if(v>4) return 'bg-green-strong';
+  if(v>3) return 'bg-green';
+  if(v>2) return 'bg-green-light';
+  if(v>1) return 'bg-yellow';
+  return '';
+}}
+
+function swColorPct(v) {{
+  if(v<20) return 'bg-green-strong';
+  if(v<35) return 'bg-green';
+  if(v<50) return 'bg-green-light';
+  if(v<70) return 'bg-yellow';
+  return 'bg-red';
+}}
+
+function swRenderTable() {{
+  swFiltered.sort((a,b) => {{
+    let va = swGetVal(a, swSortCol);
+    let vb = swGetVal(b, swSortCol);
+    if(va===null) va = swSortAsc ? 99999 : -99999;
+    if(vb===null) vb = swSortAsc ? 99999 : -99999;
+    if(typeof va==='string') return swSortAsc ? va.localeCompare(vb,'zh') : vb.localeCompare(va,'zh');
+    return swSortAsc ? va-vb : vb-va;
+  }});
+
+  for(let i=0; i<=10; i++) {{
+    const el = document.getElementById('sArrow'+i);
+    if(el) el.textContent = swSortCol===i ? (swSortAsc ? '▲' : '▼') : '';
+  }}
+
+  const tbody = document.getElementById('swTbody');
+  const nodata = document.getElementById('swNodata');
+  if(swFiltered.length===0) {{
+    tbody.innerHTML='';
+    nodata.style.display='block';
+  }} else {{
+    nodata.style.display='none';
+    const parts = [];
+    for(const idx of swFiltered) {{
+      const r = SW_DATA[idx];
+      parts.push(
+        '<tr>' +
+        '<td style="color:#888;font-size:11px">'+r[0]+'</td>' +
+        '<td style="font-weight:600">'+r[1]+'</td>' +
+        '<td style="text-align:center">'+r[2]+'</td>' +
+        '<td class="score-cell '+colorScore(r[10])+'">'+r[10].toFixed(1)+'</td>' +
+        '<td>'+r[3].toFixed(2)+'</td>' +
+        '<td class="'+swColorPE(r[4])+'">'+r[4].toFixed(2)+'</td>' +
+        '<td class="'+swColorPB(r[5])+'">'+r[5].toFixed(2)+'</td>' +
+        '<td class="'+swColorDiv(r[6])+'">'+r[6].toFixed(2)+'%</td>' +
+        '<td class="'+swColorPct(r[7])+'">'+r[7].toFixed(1)+'%</td>' +
+        '<td class="'+swColorPct(r[8])+'">'+r[8].toFixed(1)+'%</td>' +
+        '<td class="'+swColorPct(r[9])+'">'+r[9].toFixed(1)+'%</td>' +
+        '</tr>'
+      );
+    }}
+    tbody.innerHTML = parts.join('');
+  }}
+  document.getElementById('swStats').textContent =
+    '显示 '+swFiltered.length+' / '+SW_DATA.length+' 个行业' +
+    (swFiltered.length>0 ? ' | 平均评分: '+(swFiltered.reduce((s,i)=>s+SW_DATA[i][10],0)/swFiltered.length).toFixed(1) : '');
 }}
 </script>
 </body>
@@ -1741,4 +1974,5 @@ if __name__ == '__main__':
         sys.exit(1)
     output_path = os.path.join(os.path.dirname(csv_path), 'all_index_drawdown_current_and_history.html')
     qdii_csv_path = find_latest_qdii_csv()
-    generate_html(csv_path, output_path, qdii_csv_path)
+    sw_csv_path = find_sw_industry_csv()
+    generate_html(csv_path, output_path, qdii_csv_path, sw_csv_path)

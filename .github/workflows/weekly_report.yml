@@ -20,23 +20,12 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pandas openpyxl xlsxwriter akshare
+        run: pip install requests pandas openpyxl xlsxwriter akshare numpy
 
-      - name: Update config with latest trading day and token
+      - name: Update config with token
         env:
           LIXINGER_TOKEN: ${{ secrets.LIXINGER_TOKEN }}
-        run: |
-          TRADE_DATE=$(python -c "
-          import akshare as ak
-          import datetime
-          today = datetime.date.today()
-          df = ak.tool_trade_date_hist_sina()
-          dates = sorted([d.date() for d in df['trade_date'] if d.date() <= today])
-          print(dates[-1])
-          ")
-          echo "Latest trading day: $TRADE_DATE"
-          sed -i "s/^today = .*/today = \"$TRADE_DATE\"/" config.py
-          sed -i "s/^token = .*/token = \"$LIXINGER_TOKEN\"/" config.py
+        run: sed -i "s/^token = .*/token = \"$LIXINGER_TOKEN\"/" config.py
 
       - name: Generate drawdown CSV
         working-directory: allindex
@@ -50,6 +39,10 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
 
+      - name: Generate SW industry valuation
+        working-directory: allindex
+        run: python sw_industry_valuation.py
+
       - name: Generate HTML report
         working-directory: allindex
         run: python generate_html_report.py
@@ -60,14 +53,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add allindex/all_index_drawdown_current_and_history.csv
           git add allindex/all_index_drawdown_current_and_history.html
+          git add allindex/sw_industry_valuation.csv
           git add qdIIFunds/qdII_funds_drawdown.csv
           TRADE_DATE=$(python -c "
-          import akshare as ak
-          import datetime
-          today = datetime.date.today()
+          import akshare as ak, pandas as pd, datetime
+          today = pd.Timestamp(datetime.date.today())
           df = ak.tool_trade_date_hist_sina()
-          dates = sorted([d.date() for d in df['trade_date'] if d.date() <= today])
-          print(dates[-1])
+          dates = pd.to_datetime(df['trade_date'])
+          print(dates[dates <= today].max().strftime('%Y-%m-%d'))
           ")
           git diff --cached --quiet || git commit -m "Weekly report: $TRADE_DATE"
           git push

@@ -1,4 +1,11 @@
-today = "2026-04-30"
+import akshare as ak
+import pandas as pd
+import datetime as _dt
+
+_today = pd.Timestamp(_dt.date.today())
+_df = ak.tool_trade_date_hist_sina()
+_dates = pd.to_datetime(_df['trade_date'])
+today = _dates[_dates <= _today].max().strftime('%Y-%m-%d')
 token = "YOUR_TOKEN_HERE"
 positionMaps = {
     "H30533": "中国互联网50",
