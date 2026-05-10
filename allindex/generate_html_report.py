@@ -490,6 +490,7 @@ def generate_html(csv_path, output_path, qdii_csv_path=None, sw_csv_path=None):
         first_fund = ''
         if r['funds'].strip():
             first_fund = r['funds'].split(',')[0].strip()
+        theme = classify_theme(r['stockName']) or ''
         rows_json_parts.append(
             f'["{esc(r["sector"])}","{esc(r["stockCode"])}","{esc(r["publishDate"])}",'
             f'"{esc(r["stockName"])}","{esc(r["style"])}","{esc(r["hasPosition"])}",'
@@ -510,7 +511,8 @@ def generate_html(csv_path, output_path, qdii_csv_path=None, sw_csv_path=None):
             f'{json_num(p["pe5pos"])},'
             f'{json_num(p["pb5pos"])},'
             f'{json_num(p["pe_pb_divergence"])},'
-            f'{json_num(p["val_adj_div"])}]'
+            f'{json_num(p["val_adj_div"])},'
+            f'"{esc(theme)}"]'
         )
 
     rows_json = ',\n'.join(rows_json_parts)
@@ -522,6 +524,10 @@ def generate_html(csv_path, output_path, qdii_csv_path=None, sw_csv_path=None):
     l_count = len(portfolios.get('L', {}).get('items', []))
 
     all_themes = []
+    for r in rows:
+        t = classify_theme(r['stockName'])
+        if t and t not in all_themes:
+            all_themes.append(t)
     for p in portfolios.values():
         for item in p.get('items', []):
             if item['theme'] not in all_themes:
@@ -660,6 +666,7 @@ tr.has-position {{ font-weight: 600; }}
 .style-周期 {{ background: #e67e22; color: white; }}
 .style-宽基 {{ background: #2c3e50; color: white; }}
 .style-default {{ background: #95a5a6; color: white; }}
+.theme-tag {{ display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; color: white; }}
 #nodata {{ display: none; padding: 40px; text-align: center; color: #999; }}
 .buy-badge {{ background: #27ae60; color: white; font-size: 9px; padding: 1px 4px; border-radius: 3px; margin-left: 2px; vertical-align: middle; }}
 .delta {{ font-size: 9px; margin-left: 2px; }}
@@ -722,7 +729,7 @@ tr.has-position {{ font-weight: 600; }}
   td {{ padding: 4px 3px; font-size: 11px; }}
   .score-cell {{ font-size: 12px; }}
   .fund-cell {{ max-width: 120px; }}
-  .sector-tag, .style-tag {{ font-size: 9px; padding: 1px 4px; }}
+  .sector-tag, .style-tag, .theme-tag {{ font-size: 9px; padding: 1px 4px; }}
   .rec-header h2 {{ font-size: 13px; }}
   .rec-body {{ padding: 8px 10px; }}
   .rec-tabs button {{ font-size: 11px; padding: 6px 8px; }}
@@ -854,6 +861,32 @@ tr.has-position {{ font-weight: 600; }}
 </select>
 </div>
 <div class="filter-group">
+<label>主题:</label>
+<select id="themeFilter" onchange="applyFilters()">
+<option value="">全部</option>
+<option value="消费">消费</option>
+<option value="医药">医药</option>
+<option value="红利">红利</option>
+<option value="科技">科技</option>
+<option value="新能源">新能源</option>
+<option value="金融">金融</option>
+<option value="军工">军工</option>
+<option value="资源">资源</option>
+<option value="互联网">互联网</option>
+<option value="家电">家电</option>
+<option value="汽车">汽车</option>
+<option value="制造">制造</option>
+<option value="基建">基建</option>
+<option value="传媒">传媒</option>
+<option value="养老">养老</option>
+<option value="港股">港股</option>
+<option value="地产">地产</option>
+<option value="运输">运输</option>
+<option value="环保">环保</option>
+<option value="宽基">宽基</option>
+</select>
+</div>
+<div class="filter-group">
 <label>持仓:</label>
 <select id="posFilter" onchange="applyFilters()">
 <option value="">全部</option>
@@ -886,6 +919,7 @@ tr.has-position {{ font-weight: 600; }}
 <th onclick="sortBy(0)">市场 <span class="sort-arrow" id="arrow0"></span></th>
 <th onclick="sortBy(1)">代码 <span class="sort-arrow" id="arrow1"></span></th>
 <th onclick="sortBy(3)">名称 <span class="sort-arrow" id="arrow3"></span></th>
+<th onclick="sortBy(33)">主题 <span class="sort-arrow" id="arrow33"></span></th>
 <th onclick="sortBy(4)">风格 <span class="sort-arrow" id="arrow4"></span></th>
 <th onclick="sortBy(5)">持仓 <span class="sort-arrow" id="arrow5"></span></th>
 <th onclick="sortBy(15)" title="综合评分">评分 <span class="sort-arrow" id="arrow15"></span></th>
@@ -899,7 +933,7 @@ tr.has-position {{ font-weight: 600; }}
 <th onclick="sortBy(13)" title="净资产收益率(越高越好)">ROE <span class="sort-arrow" id="arrow13"></span></th>
 <th onclick="sortBy(14)" title="股息率(越高越好)">股息率 <span class="sort-arrow" id="arrow14"></span></th>
 <th onclick="sortBy(23)" title="可跟踪基金数量">基金 <span class="sort-arrow" id="arrow23"></span></th>
-<th onclick="sortBy(33)" title="距PE20%分位还需下跌多少" class="extra-col">距机会 <span class="sort-arrow" id="arrow33"></span></th>
+<th onclick="sortBy(34)" title="距PE20%分位还需下跌多少" class="extra-col">距机会 <span class="sort-arrow" id="arrow34"></span></th>
 <th onclick="sortBy(29)" title="PE 5年百分位" class="extra-col">PE5位 <span class="sort-arrow" id="arrow29"></span></th>
 <th onclick="sortBy(30)" title="PB 5年百分位" class="extra-col">PB5位 <span class="sort-arrow" id="arrow30"></span></th>
 <th onclick="sortBy(31)" title="PE位-PB位 背离度" class="extra-col">背离 <span class="sort-arrow" id="arrow31"></span></th>
@@ -1031,7 +1065,7 @@ const DATA=[
 // 6=currDD,7=largestDD,8=ftld,9=pe,10=pePos,11=pb,12=pbPos,13=roe,14=div,
 // 15=score,16=ftld_n,17=currDD_n,18=largestDD_n,19=pePos_n,20=pbPos_n,
 // 21=roe_n,22=div_n,23=fundCount,24=firstFund,25=allFunds,
-// 26=scoreDelta,27=pePosChg,28=pbPosChg,29=pe5pos_n,30=pb5pos_n,31=divergence_n,32=valAdjDiv_n
+// 26=scoreDelta,27=pePosChg,28=pbPosChg,29=pe5pos_n,30=pb5pos_n,31=divergence_n,32=valAdjDiv_n,33=theme
 
 let sortCol = 15;
 let sortAsc = false;
@@ -1143,10 +1177,16 @@ function styleTag(s) {{
   const cls = ['价值','成长','周期','宽基'].includes(s) ? 'style-'+s : 'style-default';
   return '<span class="style-tag '+cls+'">'+s+'</span>';
 }}
+function themeTag(s) {{
+  if(!s) return '-';
+  const c = THEME_COLORS[s];
+  if(c) return '<span class="theme-tag" style="background:'+c+'">'+s+'</span>';
+  return '<span class="theme-tag">'+s+'</span>';
+}}
 
 function sortBy(col) {{
   if(sortCol === col) sortAsc = !sortAsc;
-  else {{ sortCol = col; sortAsc = (col<=5 || col===23); }}
+  else {{ sortCol = col; sortAsc = (col<=5 || col===23 || col===33); }}
   renderTable();
 }}
 
@@ -1165,7 +1205,8 @@ function getVal(idx, col) {{
   if(col===29) return r[29];
   if(col===30) return r[30];
   if(col===31) return r[31]!==null ? Math.abs(r[31]) : -1;
-  if(col===33) return r[19]!==null ? (r[19]<=20 ? -1 : r[19]-20) : 99999;
+  if(col===33) return r[33];
+  if(col===34) return r[19]!==null ? (r[19]<=20 ? -1 : r[19]-20) : 99999;
   if(col===9) return parseFloat(r[9])||99999;
   if(col===11) return parseFloat(r[11])||99999;
   return r[col];
@@ -1175,6 +1216,7 @@ function applyFilters() {{
   const search = document.getElementById('searchInput').value.toLowerCase();
   const sector = document.getElementById('sectorFilter').value;
   const style = document.getElementById('styleFilter').value;
+  const theme = document.getElementById('themeFilter').value;
   const pos = document.getElementById('posFilter').value;
   const minScore = parseInt(document.getElementById('scoreFilter').value);
 
@@ -1183,11 +1225,12 @@ function applyFilters() {{
     const r = DATA[i];
     if(sector && r[0]!==sector) continue;
     if(style && r[4]!==style) continue;
+    if(theme && r[33]!==theme) continue;
     if(pos==='yes' && r[5]!=='*') continue;
     if(pos==='no' && r[5]==='*') continue;
     if(r[15]<minScore) continue;
     if(search) {{
-      const hay = (r[1]+r[3]+r[4]+r[24]+r[25]).toLowerCase();
+      const hay = (r[1]+r[3]+r[4]+r[24]+r[25]+r[33]).toLowerCase();
       if(!hay.includes(search)) continue;
     }}
     filtered.push(i);
@@ -1199,6 +1242,7 @@ function resetFilters() {{
   document.getElementById('searchInput').value='';
   document.getElementById('sectorFilter').value='';
   document.getElementById('styleFilter').value='';
+  document.getElementById('themeFilter').value='';
   document.getElementById('posFilter').value='';
   document.getElementById('scoreFilter').value='0';
   applyFilters();
@@ -1214,7 +1258,7 @@ function renderTable() {{
     return sortAsc ? va-vb : vb-va;
   }});
 
-  for(let i=0; i<=33; i++) {{
+  for(let i=0; i<=34; i++) {{
     const el = document.getElementById('arrow'+i);
     if(el) el.textContent = sortCol===i ? (sortAsc ? '▲' : '▼') : '';
   }}
@@ -1241,6 +1285,7 @@ function renderTable() {{
         '<td>'+sectorTag(r[0])+'</td>' +
         '<td>'+r[1]+'</td>' +
         '<td>'+r[3]+'</td>' +
+        '<td class="theme-cell">'+themeTag(r[33])+'</td>' +
         '<td>'+styleTag(r[4])+'</td>' +
         '<td>'+(hp?'<span class="position-star">★</span>':'')+'</td>' +
         '<td class="score-cell '+colorScore(r[15])+'">'+r[15]+buyBadge+scoreDelta+'</td>' +
@@ -1270,13 +1315,14 @@ function renderTable() {{
 
 sortCol = 15;
 sortAsc = false;
-applyFilters();
-
-const PORTFOLIOS = {portfolios_js};
 
 const THEME_COLORS = {{
   {theme_colors_js}
 }};
+
+applyFilters();
+
+const PORTFOLIOS = {portfolios_js};
 
 const OVERLAP_CAPS = {overlap_caps_js};
 
@@ -1780,6 +1826,8 @@ def pick_best_per_theme(rows, theme, count=1, min_score=50):
         fund_count = len([f.strip() for f in r['funds'].split(',') if f.strip()]) if r['funds'].strip() else 0
         if fund_count == 0:
             continue
+        if theme == '宽基' and (pe_pos > 30 or pb_pos > 30):
+            continue
         val_score = r['score'] * 2 - pe_pos - pb_pos
         candidates.append((val_score, r))
     candidates.sort(key=lambda x: -x[0])
@@ -1822,6 +1870,10 @@ def get_theme_colors(themes):
         '消费': '#e74c3c', '医药': '#27ae60', '互联网': '#8e44ad',
         '金融': '#f39c12', '红利': '#c0392b', '家电': '#2980b9',
         '基建': '#7f8c8d', '养老': '#16a085', '港股': '#3498db',
+        '科技': '#9b59b6', '新能源': '#2ecc71', '军工': '#34495e',
+        '资源': '#d35400', '汽车': '#1abc9c', '制造': '#e67e22',
+        '传媒': '#e91e63', '地产': '#795548', '运输': '#607d8b',
+        '环保': '#4caf50', '宽基': '#ff9800',
     }
     result = {}
     palette_idx = 0
@@ -1837,25 +1889,31 @@ def get_theme_colors(themes):
 
 
 def generate_portfolios(rows):
-    theme_order = ['消费', '医药', '红利', '互联网', '金融', '家电', '基建', '养老', '港股']
+    theme_order = ['消费', '医药', '红利', '科技', '新能源', '金融', '军工', '资源',
+                   '互联网', '家电', '汽车', '制造', '基建', '传媒', '养老', '港股',
+                   '地产', '运输', '环保', '宽基']
     theme_picks = {}
     for theme in theme_order:
-        max_count = 3 if theme == '消费' else 2 if theme == '医药' else 1
+        max_count = 3 if theme == '消费' else 2 if theme in ('医药', '科技', '新能源', '宽基') else 1
         picks = pick_best_per_theme(rows, theme, count=max_count)
         if picks:
             theme_picks[theme] = picks
 
     small_themes = {
-        '消费': 1, '医药': 1, '红利': 1, '互联网': 1, '金融': 1, '家电': 1
+        '消费': 1, '医药': 1, '红利': 1, '科技': 1, '新能源': 1, '金融': 1, '家电': 1
     }
     medium_themes = {
-        '消费': 2, '医药': 2, '红利': 1, '互联网': 1, '金融': 1, '家电': 1, '基建': 1
+        '消费': 2, '医药': 2, '红利': 1, '科技': 2, '新能源': 1, '金融': 1,
+        '军工': 1, '互联网': 1, '家电': 1, '资源': 1, '汽车': 1, '基建': 1
     }
     large_themes = {
-        '消费': 3, '医药': 2, '红利': 1, '互联网': 1, '金融': 1, '家电': 1, '基建': 1, '养老': 1, '港股': 1
+        '消费': 3, '医药': 2, '红利': 1, '科技': 2, '新能源': 2, '金融': 1,
+        '军工': 1, '资源': 1, '互联网': 1, '家电': 1, '汽车': 1, '制造': 1,
+        '基建': 1, '传媒': 1, '养老': 1, '港股': 1, '地产': 1, '运输': 1,
+        '环保': 1, '宽基': 2
     }
 
-    overlap_caps = {'消费': 25, '医药': 20, '互联网': 15}
+    overlap_caps = {'消费': 20, '医药': 15, '科技': 15, '新能源': 12}
 
     def build_tier(theme_counts, label, desc):
         items = []
@@ -1914,13 +1972,13 @@ def generate_portfolios(rows):
         return {'label': label, 'desc': desc, 'items': items}
 
     portfolios = {}
-    s = build_tier(small_themes, '精简组合', f'集中持有，适合资金量较小或偏好简单管理的投资者')
+    s = build_tier(small_themes, '精简组合', f'集中持有核心主题，适合资金量较小或偏好简单管理的投资者')
     if s:
         portfolios['S'] = s
-    m = build_tier(medium_themes, '均衡组合', f'风格均衡，覆盖消费/医药/科技/金融/红利，适合中等资金量')
+    m = build_tier(medium_themes, '均衡组合', f'覆盖消费/医药/科技/新能源/金融/军工等主流板块，适合中等资金量')
     if m:
         portfolios['M'] = m
-    l = build_tier(large_themes, '全面组合', f'全面覆盖，包含港股分散化配置，适合较大资金量长期持有')
+    l = build_tier(large_themes, '全面组合', f'全行业覆盖，包含港股及低估宽基分散化配置，适合较大资金量长期持有')
     if l:
         portfolios['L'] = l
 
