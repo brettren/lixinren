@@ -43,6 +43,12 @@ jobs:
         working-directory: allindex
         run: python sw_industry_valuation.py
 
+      - name: Collect weekly news
+        working-directory: news
+        run: python run_weekly.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
       - name: Generate HTML report
         working-directory: allindex
         run: python generate_html_report.py
@@ -55,6 +61,7 @@ jobs:
           git add allindex/all_index_drawdown_current_and_history.html
           git add allindex/sw_industry_valuation.csv
           git add qdIIFunds/qdII_funds_drawdown.csv
+          git add news/weekly_news_report.csv
           TRADE_DATE=$(python -c "
           import akshare as ak, pandas as pd, datetime
           today = pd.Timestamp(datetime.date.today())

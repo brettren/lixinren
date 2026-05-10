@@ -13,3 +13,7 @@ __pycache__/
 *.xltx
 *.pdf
 .env
+
+# News module
+news/news.db
+news/.env
