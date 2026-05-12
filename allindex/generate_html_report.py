@@ -780,7 +780,7 @@ tr.has-position {{ font-weight: 600; }}
 <div class="legend-item"><div class="legend-color bg-yellow"></div> 注意</div>
 <div class="legend-item"><div class="legend-color bg-red"></div> 警告</div>
 <span style="margin-left:12px;font-weight:600;">评分:</span>
-<span>距最低回撤(30) + PE百分位(25) + PB百分位(15) + ROE(20) + 股息率(15) = 满分105</span>
+<span>距最低回撤(30) + PE百分位(25) + PB百分位(15) + ROE(20) + 股息率(15) = 满分105。配比采用半凯利公式：edge=(评分-40)/105×25%+估值奖励, loss=|距最低|, 权重∝edge/loss×0.5</span>
 <span style="margin-left:12px;font-weight:600;"><span class="buy-badge">值</span></span>
 <span>PE位&lt;30% 且 PB位&lt;30% 且 距最低&gt;-20%，三重低估信号</span>
 <span style="margin-left:12px;font-weight:600;">背离:</span>
@@ -1418,7 +1418,7 @@ function renderPortfolio(p) {{
   }}
   notes.innerHTML =
     '<strong>重叠控制:</strong> '+(overlapParts.length ? overlapParts.join(' | ') : '无')+'<br>' +
-    '<strong>配置逻辑:</strong> 优先选择各主题中PE/PB百分位最低(估值最便宜)、ROE和股息率较高的代表性指数。同类指数仅保留1-2只避免重复暴露。<br>' +
+    '<strong>配置逻辑:</strong> 基于半凯利公式(Half-Kelly)动态配比——评分越高、距最低回撤越小的指数获得更大仓位。边际收益(edge)由综合评分和估值百分位推导，下行风险(loss)取距历史最低回撤幅度，Kelly比例=edge/loss×50%后归一化为百分比权重。同类指数仅保留1-2只避免重复暴露。<br>' +
     '<strong>风险提示:</strong> 本推荐基于历史估值数据和量化评分，不构成投资建议。指数过去表现不代表未来收益。请根据自身风险承受能力决定配置比例。';
 }}
 
@@ -1915,8 +1915,41 @@ def generate_portfolios(rows):
 
     overlap_caps = {'消费': 20, '医药': 15, '科技': 15, '新能源': 12}
 
+    def kelly_weight(row):
+        """Derive a Kelly-inspired weight for an index.
+
+        Edge is estimated from the composite score: a score of 105 (max) implies
+        high expected return, while a score near the minimum threshold (50) implies
+        minimal edge. We map score -> estimated annual edge (excess return over
+        risk-free rate).
+
+        Downside is estimated from fall_to_lowest_drawdown: how much further the
+        index could fall to reach its historical worst point.
+
+        Kelly fraction: f* = edge / loss_magnitude (simplified for one-period).
+        We apply half-Kelly (0.5x) for estimation error safety.
+        """
+        p = row['_parsed']
+        score = row['score']
+        pe_pos = p.get('pe10pos', 50)
+        pb_pos = p.get('pb10pos', 50)
+        ftld = p.get('fall_to_lowest_drawdown', -30)
+
+        edge = (score - 40) / 105.0 * 0.25
+        valuation_bonus = max(0, (100 - pe_pos - pb_pos)) / 200.0 * 0.10
+        edge += valuation_bonus
+        edge = max(edge, 0.01)
+
+        loss = min(abs(ftld), 50) / 100.0
+        loss = max(loss, 0.05)
+
+        kelly_f = edge / loss
+        half_kelly = kelly_f * 0.5
+        return max(half_kelly, 0.02)
+
     def build_tier(theme_counts, label, desc):
         items = []
+        raw_rows = []
         for theme in theme_order:
             count = theme_counts.get(theme, 0)
             if count == 0 or theme not in theme_picks:
@@ -1924,21 +1957,23 @@ def generate_portfolios(rows):
             picks = theme_picks[theme][:count]
             for r in picks:
                 items.append(build_portfolio_item(r))
+                raw_rows.append(r)
 
         if not items:
             return None
 
         n = len(items)
-        theme_item_counts = {}
-        for item in items:
-            theme_item_counts[item['theme']] = theme_item_counts.get(item['theme'], 0) + 1
+        raw_kelly = [kelly_weight(r) for r in raw_rows]
+        kelly_sum = sum(raw_kelly)
+        weights = [int(round(k / kelly_sum * 100)) for k in raw_kelly]
 
-        base_weight = 100 // n
-        weights = [base_weight] * n
-        remainder = 100 - sum(weights)
-        for i in range(remainder):
-            weights[i] += 1
+        diff = 100 - sum(weights)
+        if diff != 0:
+            sorted_idx = sorted(range(n), key=lambda i: raw_kelly[i], reverse=True)
+            for i in range(abs(diff)):
+                weights[sorted_idx[i % n]] += 1 if diff > 0 else -1
 
+        capped_indices = set()
         for theme, cap in overlap_caps.items():
             theme_indices = [i for i, item in enumerate(items) if item['theme'] == theme]
             if not theme_indices:
@@ -1953,7 +1988,8 @@ def generate_portfolios(rows):
                 weights[idx] -= per_item_reduce
             for j in range(leftover_reduce):
                 weights[theme_indices[-(j+1)]] -= 1
-            other_indices = [i for i in range(n) if i not in theme_indices]
+            capped_indices.update(theme_indices)
+            other_indices = [i for i in range(n) if i not in capped_indices]
             if other_indices:
                 per_other_add = excess // len(other_indices)
                 leftover_add = excess % len(other_indices)
@@ -1964,7 +2000,9 @@ def generate_portfolios(rows):
 
         total = sum(weights)
         if total != 100:
-            weights[0] += (100 - total)
+            uncapped = [i for i in range(n) if i not in capped_indices]
+            adjust_idx = uncapped[0] if uncapped else 0
+            weights[adjust_idx] += (100 - total)
 
         for i, item in enumerate(items):
             item['w'] = weights[i]
